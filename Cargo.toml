@@ -1,0 +1,11 @@
+[package]
+name = "git"
+version = "0.1.0"
+authors = ["Nicolas DI PRIMA <nicolas@di-prima.fr>"]
+
+[features]
+with-bench = []
+
+[dependencies]
+rust-crypto = "^0.2"
+flate2 = "0.2.14"
