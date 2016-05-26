@@ -1,4 +1,4 @@
-use super::hash;
+use hash;
 
 pub struct Blob {
   data: Vec<u8>,
@@ -28,9 +28,9 @@ impl hash::Hashable for Blob {
 
 #[cfg(test)]
 mod tests {
-    use ::git::hash;
-    use ::git::hash::Hashable;
-    use ::git::object;
+    use hash;
+    use hash::Hashable;
+    use object;
 
     #[test]
     fn test_blob() {
@@ -38,7 +38,7 @@ mod tests {
         let expected_digest = [18, 224, 96, 142, 217, 247, 183, 20, 57, 121, 97, 167, 8, 7, 75, 151, 22, 166, 74, 33];
         let expected_prefix = &expected_digest[..1];
         let expected_loose  = &expected_digest[1..];
-        let r : hash::Ref<hash::SHA1> = data.hash();
+        let r : hash::HashRef<hash::SHA1> = data.hash();
         assert_eq!(expected_prefix, r.prefix());
         assert_eq!(expected_loose,  r.loose());
         assert_eq!(expected_digest, r.digest())
@@ -47,9 +47,9 @@ mod tests {
 
 #[cfg(test)]
 mod bench {
-    use ::git::hash;
-    use ::git::hash::Hashable;
-    use ::git::object;
+    use hash;
+    use hash::Hashable;
+    use object;
     use test::Bencher;
 
     #[bench]
@@ -57,7 +57,7 @@ mod bench {
         let v : Vec<u8> = vec![0; 65536];
         let bytes : object::Blob = From::from(&v as &[u8]);
         bh.iter( || {
-            let _ : hash::Ref<hash::SHA1> = bytes.hash();
+            let _ : hash::HashRef<hash::SHA1> = bytes.hash();
         });
         bh.bytes = bytes.data.len() as u64;
     }
