@@ -7,6 +7,7 @@ use std::fs::{File};
 use std::io::Read;
 use std::str::FromStr;
 use std::collections::BTreeSet;
+use std::collections::VecDeque;
 
 pub use hash::*;
 pub use repo::Repo;
@@ -25,6 +26,48 @@ pub mod object;
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct GitFS {
     path: PathBuf,
+}
+
+fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P) -> Result<()>
+    where P: AsRef<Path>
+{
+    let _ = match path.as_ref().read_dir() {
+        Err(err) => return Err(GitError::IoError(format!("{:?}", err))),
+        Ok(l)    => {
+            l.fold(queue, |queue, d| {
+                match d {
+                    Ok(dir)   => queue.push_back(dir.path()),
+                    Err(err)  => panic!("{:?}", err)
+                };
+                queue
+            })
+        }
+    };
+    Ok(())
+}
+
+pub fn get_all_files_in<T>( parent_path: T
+                          , make_specref: & Fn(&Path) -> Result<SpecRef>
+                          )
+    -> Result<BTreeSet<SpecRef>>
+    where T: AsRef<Path>
+{
+    let mut queue = VecDeque::with_capacity(100);
+    let mut btree = BTreeSet::new();
+    let full_path = parent_path.as_ref();
+    try!(append_dir_to_queue(&mut queue, &full_path));
+    while let Some(dir) = queue.pop_front() {
+        if dir.is_file() {
+            let b = match dir.strip_prefix(&parent_path) {
+                Err(err) => return Err(GitError::IoError(format!("{:?}", err))),
+                Ok(b) => b
+            };
+            btree.insert(try!(make_specref(b)));
+        } else if dir.is_dir() {
+            try!(append_dir_to_queue(&mut queue, &dir));
+        }
+    }
+    Ok(btree)
 }
 
 impl GitFS {
@@ -78,33 +121,6 @@ impl GitFS {
     /// return the git current HEAD file path
     pub fn head_file(&self)        -> PathBuf { self.path.to_path_buf().join("HEAD") }
 
-    pub fn get_all_files_in<T: AsRef<Path>, P: AsRef<Path>>(&self, po: T, b: P)
-        -> Result<BTreeSet<SpecRef>>
-    {
-        let parent_path = self.path.to_path_buf().join(po);
-        let full_path = parent_path.clone().join(b);
-        let mut btree = BTreeSet::new();
-        let subdirs = match full_path.read_dir() {
-            Err(err) => return Err(GitError::IoError(format!("{:?}", err))),
-            Ok(l)    => l
-        };
-        for d_ in subdirs {
-            if let Ok(d) = d_ {
-                let p = d.path();
-                let b = match p.strip_prefix(&parent_path) {
-                    Err(err) => return Err(GitError::IoError(format!("{:?}", err))),
-                    Ok(b)    => b
-                };
-                if p.exists() && p.is_file() {
-                    btree.insert(SpecRef::branch(b));
-                } else if p.exists() && p.is_dir() {
-                    btree.extend(try!(self.get_all_files_in(po, b)))
-                }
-            }
-        };
-        Ok(btree)
-
-    }
 
     fn check_repo(&self) -> Result<()> {
         let dirs = [ self.refs_dir()
@@ -154,30 +170,25 @@ impl Repo for GitFS {
         Ref::from_str(&s)
     }
     fn list_branches(&self) -> Result<BTreeSet<SpecRef>> {
-        let dir = self.refs_dir().join("heads");
-        let mut btree = BTreeSet::new();
-        let subdirs = match dir.read_dir() {
-            Err(err) => return Err(GitError::IoError(format!("{:?}", err))),
-            Ok(l)    => l
-        };
-        for d_ in subdirs {
-            if let Ok(d) = d_ {
-                let p = d.path();
-                let b = match p.strip_prefix(&dir) {
-                    Err(err) => return Err(GitError::IoError(format!("{:?}", err))),
-                    Ok(b)    => b
-                };
-                if p.exists() && p.is_file() {
-                    // This is a branch
-                    btree.insert(SpecRef::branch(b));
-                } else if p.exists() && p.is_dir() {
-                    // we are going to need to build the branch name exploring
-                    // the tree
-                    unimplemented!();
-                }
+        get_all_files_in( self.refs_dir().join("heads")
+                        , &|x| Ok(SpecRef::branch(x))
+                        )
+    }
+    fn list_remotes(&self) -> Result<BTreeSet<SpecRef>> {
+        get_all_files_in( self.refs_dir().join("remotes")
+                        , &|remote_path| {
+            let mut components = remote_path.components();
+            match components.next() {
+                Some(Component::Normal(remote)) => Ok(SpecRef::remote(remote, components.as_path())),
+                _ => Err(GitError::InvalidRemote(remote_path.to_path_buf()))
             }
-        };
-        Ok(btree)
+        }
+        )
+    }
+    fn list_tags(&self) -> Result<BTreeSet<SpecRef>> {
+        get_all_files_in( self.refs_dir().join("tags")
+                        , &|x| Ok(SpecRef::tag(x))
+                        )
     }
 }
 
@@ -226,5 +237,20 @@ mod tests {
         assert_eq!( git.get_head()
                   , Ok(Ref::Link(SpecRef::branch("master")))
                   )
+    }
+    #[test]
+    fn git_fs_get_branches() {
+        let path = PathBuf::new().join(".").join(".git");
+        let git = GitFS::new(&path).unwrap();
+        let branches = git.list_branches().unwrap();
+        assert!(branches.contains(&SpecRef::branch("master")));
+    }
+    #[test]
+    fn git_fs_get_remotes() {
+        let path = PathBuf::new().join(".").join(".git");
+        let git = GitFS::new(&path).unwrap();
+        let branches = git.list_remotes().unwrap();
+        assert!(branches.contains(&SpecRef::remote("exp", "master")));
+        assert!(branches.contains(&SpecRef::remote("origin", "master")));
     }
 }
