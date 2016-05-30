@@ -185,7 +185,6 @@ impl Repo for GitFS {
             zlibr.read_to_string(&mut s)
                  .map_err(|err| GitError::IoError(format!("{:?}", err)))
                  .and_then(|_| {
-                     println!("XX \n{}\nXX", &s);
                      Commit::parse(s.as_bytes())
                  })
         })
@@ -284,8 +283,7 @@ mod tests {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
         let commit = git.get_commit(Ref::Link(SpecRef::head()));
-        println!("{:?}", &commit);
+        // println!("{:?}", &commit);
         assert!(commit.is_ok());
-        assert!(false);
     }
 }
