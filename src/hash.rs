@@ -106,15 +106,15 @@ impl<Hash: Property+Hasher> fmt::Display for HashRef<Hash> {
 impl<Hash: Property+Hasher> FromStr for HashRef<Hash> {
     type Err = GitError;
     fn from_str(s: &str) -> Result<Self> {
-        match s.from_hex() {
-            Err(err) => Err(GitError::Unknown(format!("{}", err))),
-            Ok(v)    => {
+        s.from_hex()
+            .map_err(|err| GitError::Unknown(format!("{}", err)))
+            .and_then(|v| {
                 if v.len() != Hash::DIGEST_SIZE {
-                    return Err(GitError::Unknown(format!("{}, expecting length {}", s, Hash::DIGEST_SIZE)));
+                    Err(GitError::Unknown(format!("{}, expecting length {}", s, Hash::DIGEST_SIZE)))
+                } else {
+                    Ok (HashRef::new_with(&v))
                 }
-                Ok (HashRef::new_with(&v))
-            }
-        }
+            })
     }
 }
 

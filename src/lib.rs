@@ -2,12 +2,18 @@
 #![feature(test)]
 extern crate test;
 
+#[macro_use]
+extern crate nom;
+
+extern crate flate2;
+
 use std::path::*;
 use std::fs::{File};
 use std::io::Read;
 use std::str::FromStr;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
+use flate2::read::ZlibDecoder;
 
 pub use hash::*;
 pub use repo::Repo;
@@ -28,22 +34,19 @@ pub struct GitFS {
     path: PathBuf,
 }
 
-fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P) -> Result<()>
+fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P)
+    -> Result<()>
     where P: AsRef<Path>
 {
-    let _ = match path.as_ref().read_dir() {
-        Err(err) => return Err(GitError::IoError(format!("{:?}", err))),
-        Ok(l)    => {
+    path.as_ref().read_dir()
+        .map_err(|err| GitError::IoError(format!("{:?}", err)))
+        .map(|l| {
             l.fold(queue, |queue, d| {
-                match d {
-                    Ok(dir)   => queue.push_back(dir.path()),
-                    Err(err)  => panic!("{:?}", err)
-                };
+                let _ = d.map_err(|err| GitError::IoError(format!("{:?}", err)))
+                         .map(|dir| queue.push_back(dir.path()));
                 queue
-            })
-        }
-    };
-    Ok(())
+            });
+        })
 }
 
 pub fn get_all_files_in<T>( parent_path: T
@@ -89,10 +92,7 @@ impl GitFS {
     /// ```
     pub fn new(p: &Path) -> Result<Self> {
         let git = GitFS { path: p.to_path_buf() };
-        match git.check_repo() {
-            Err(err) => Err(err),
-            Ok(_)    => Ok(git)
-        }
+        git.check_repo().map(move |_| git)
     }
 
     /// return the refs directory (where all the link to the branches and tags are)
@@ -147,10 +147,8 @@ impl GitFS {
 }
 
 fn open_file(path: &PathBuf) -> Result<File> {
-    match File::open(path) {
-        Err(err) => return Err(GitError::IoError(format!("{}", err))),
-        Ok(file) => Ok(file)
-    }
+    File::open(path)
+        .map_err(|err| GitError::IoError(format!("{}", err)))
 }
 
 impl Repo for GitFS {
@@ -159,16 +157,40 @@ impl Repo for GitFS {
         let filepath = self.description_file();
         let mut file = try!(open_file(&filepath));
         let mut s = String::new();
-        file.read_to_string(&mut s).unwrap();
-        Ok(s)
+        file.read_to_string(&mut s)
+            .map_err(|err| GitError::IoError(format!("{}", err)))
+            .map(move |_| s)
     }
-    fn get_ref(&self, r: &SpecRef) -> Result<Ref<SHA1>> {
+    fn get_ref(&self, r: SpecRef) -> Result<Ref<SHA1>> {
         let filepath = self.path.to_path_buf().join(PathBuf::from(r));
         let mut file = try!(open_file(&filepath));
         let mut s = String::new();
-        file.read_to_string(&mut s).unwrap();
-        Ref::from_str(&s)
+        file.read_to_string(&mut s)
+            .map_err(|err| GitError::IoError(format!("{}", err)))
+            .and_then(|_| Ref::from_str(&s))
     }
+    fn get_commit(&self, r: Ref<SHA1>) -> Result<Commit<SHA1>> {
+        let hr : Result<HashRef<SHA1>> = match r {
+            Ref::Link(sr) => self.get_ref_follow_links(sr),
+            Ref::Hash(hr) => Ok(hr)
+        };
+        hr.and_then(|r| {
+            let path = self.objs_dir().join(r.path());
+            if ! path.is_file() {
+                return Err(GitError::InvalidRef(path))
+            }
+            let file = try!(open_file(&path));
+            let mut zlibr = ZlibDecoder::new(file);
+            let mut s = String::new();
+            zlibr.read_to_string(&mut s)
+                 .map_err(|err| GitError::IoError(format!("{:?}", err)))
+                 .and_then(|_| {
+                     println!("XX \n{}\nXX", &s);
+                     Commit::parse(s.as_bytes())
+                 })
+        })
+    }
+
     fn list_branches(&self) -> Result<BTreeSet<SpecRef>> {
         get_all_files_in( self.refs_dir().join("heads")
                         , &|x| Ok(SpecRef::branch(x))
@@ -178,11 +200,15 @@ impl Repo for GitFS {
         get_all_files_in( self.refs_dir().join("remotes")
                         , &|remote_path| {
             let mut components = remote_path.components();
-            match components.next() {
-                Some(Component::Normal(remote)) => Ok(SpecRef::remote(remote, components.as_path())),
-                _ => Err(GitError::InvalidRemote(remote_path.to_path_buf()))
+            components
+                .next()
+                .map_or(Err(GitError::InvalidRemote(remote_path.to_path_buf())), |p| {
+                    match p {
+                        Component::Normal(remote) => Ok(SpecRef::remote(remote, components.as_path())),
+                        _ => Err(GitError::Unknown("invalid remote name".to_string()))
+                    }
+                })
             }
-        }
         )
     }
     fn list_tags(&self) -> Result<BTreeSet<SpecRef>> {
@@ -222,13 +248,13 @@ mod tests {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
         let r = SpecRef::branch("master");
-        assert!(git.get_ref(&r).is_ok())
+        assert!(git.get_ref(r).is_ok())
     }
     #[test]
     fn git_fs_get_ref_follow_link() {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
-        assert!(git.get_ref_follow_links(&SpecRef::Head).is_ok())
+        assert!(git.get_ref_follow_links(SpecRef::Head).is_ok())
     }
     #[test]
     fn git_fs_get_head() {
@@ -251,6 +277,15 @@ mod tests {
         let git = GitFS::new(&path).unwrap();
         let branches = git.list_remotes().unwrap();
         assert!(branches.contains(&SpecRef::remote("exp", "master")));
-        assert!(branches.contains(&SpecRef::remote("origin", "master")));
+        //assert!(branches.contains(&SpecRef::remote("origin", "master")));
+    }
+    #[test]
+    fn git_fs_get_commit() {
+        let path = PathBuf::new().join(".").join(".git");
+        let git = GitFS::new(&path).unwrap();
+        let commit = git.get_commit(Ref::Link(SpecRef::head()));
+        println!("{:?}", &commit);
+        assert!(commit.is_ok());
+        assert!(false);
     }
 }
