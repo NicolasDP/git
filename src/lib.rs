@@ -22,6 +22,7 @@ pub use error::*;
 pub use refs::{Ref, SpecRef};
 
 mod error;
+mod objectable;
 pub mod hash;
 pub mod repo;
 pub mod refs;

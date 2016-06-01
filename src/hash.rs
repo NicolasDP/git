@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use std::str::FromStr;
+use std::str::{FromStr, from_utf8_unchecked};
 use std::convert::From;
 use std::fmt;
 use std::path::PathBuf;
@@ -12,6 +12,9 @@ extern crate crypto;
 use self::crypto::digest::Digest;
 use self::crypto::sha1::Sha1;
 
+use objectable::Objectable;
+use nom;
+
 pub trait Hasher {
     fn new() -> Self;
     fn write<T: AsRef<[u8]>>(&mut self, bytes: T);
@@ -22,14 +25,16 @@ pub trait Property {
     const PREFIX_SIZE: usize;
 }
 pub trait Hashable {
-    fn get_chunk(&self, usize) -> Option<Vec<u8>>;
+    fn get_chunk<'a>(&'a self, usize) -> &'a [u8];
     fn hash<Hash : Property + Hasher> (&self) -> HashRef<Hash> {
         let mut hs = Hash::new();
         let mut i = 0;
-        while let Some(data) = self.get_chunk(i) {
-            hs.write(&data);
-            if i == 100 { break; } else { i = i + 1; }
-        };
+        loop {
+            let data = self.get_chunk(i);
+            if (data.len() == 0) || (i >= 100) { break }
+            i += 1;
+            hs.write(data)
+        }
         HashRef::new_with(&hs.finish())
     }
 }
@@ -103,6 +108,22 @@ impl<Hash: Property+Hasher> fmt::Display for HashRef<Hash> {
         write!(f, "{}", self.digest().to_hex())
     }
 }
+impl<Hash: Property+Hasher> Objectable for HashRef<Hash> {
+    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> {
+        let hex_size = Hash::DIGEST_SIZE * 2;
+        if b.len() < hex_size {
+            return nom::IResult::Incomplete(nom::Needed::Size(hex_size));
+        }
+        let hex_str = unsafe { from_utf8_unchecked(&b[..hex_size]) };
+        let remain  = &b[hex_size..];
+
+        match hex_str.from_hex() {
+            Ok(v)  => nom::IResult::Done(remain, HashRef::from(v)),
+            Err(_) => nom::IResult::Error(nom::Err::Code(nom::ErrorKind::HexDigit))
+        }
+    }
+}
+
 impl<Hash: Property+Hasher> FromStr for HashRef<Hash> {
     type Err = GitError;
     fn from_str(s: &str) -> Result<Self> {
@@ -118,6 +139,9 @@ impl<Hash: Property+Hasher> FromStr for HashRef<Hash> {
     }
 }
 
+impl<Hash: Property+Hasher> From<Vec<u8>> for HashRef<Hash> {
+    fn from(data: Vec<u8>) -> Self { HashRef { hash: data, _hash_type: PhantomData } }
+}
 impl<'a> From<&'a Vec<u8>> for HashRef<SHA1> {
     fn from(data:&'a Vec<u8>) -> Self { HashRef::new_with(data) }
 }
@@ -141,11 +165,9 @@ mod tests {
         fn new(d: &str) -> Self { MockHashable { data : d.to_string() } }
     }
     impl hash::Hashable for MockHashable {
-        fn get_chunk(&self, count: usize) -> Option<Vec<u8>> {
-            if count > 0 { return None }
-            let mut v = Vec::with_capacity(self.data.len());
-            v.extend_from_slice(self.data.as_bytes());
-            Some(v.clone())
+        fn get_chunk(&self, count: usize) -> &[u8] {
+            if count > 0 { return &b""[..] }
+            self.data.as_bytes()
         }
     }
 

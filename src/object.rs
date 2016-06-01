@@ -3,39 +3,36 @@ use hash::{SHA1, HashRef};
 use std::collections::BTreeMap;
 use error::*;
 use std;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::str;
-use std::str::FromStr;
 
 use nom;
 
-/// Property for object that can be saved into a Git Object
-///
-/// # TODO
-///
-/// we could consider that an Objectable must be Hashable
-/// or more simply that every Objectable is Hashable as soon
-/// as it is possible to collect chunks of it.
-///
-pub trait Objectable<'a> : hash::Hashable + From<&'a str> {
-    /// a file is a blob for example
-    /// a stream is a blob as well
-    /// the idea being we can create high level structure whith different
-    /// properties or features but being a Git Object of type Blob... or Commit
-    const OBJECT_TYPE: &'static str;
-    fn get_chunk(&mut self, count: usize) -> Result<Vec<u8>>;
-}
+pub use objectable::Objectable;
 
-#[derive(Debug)]
+/// Git Date
+///
+/// * timezone
+/// * elapsed (since EPOCH)
+///
+/// # Example
+///
+/// ```
+/// use git::object::{Date, Objectable};
+///
+/// let date = Date::new(1464729412, 60);
+/// let str = format!("{}", date);
+/// let date2 = Date::parse_bytes(str.as_bytes()).unwrap();
+/// assert_eq!(date, date2);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Date {
-    pub tz: i64,
-    pub elapsed: i64,
+    tz: i64,
+    elapsed: i64,
 }
-
-#[derive(Debug)]
-pub struct Person {
-    pub name: String,
-    pub email: String,
-    pub date: Date
+impl Date {
+    pub fn new(tz: i64, elapsed: i64) -> Self { Date { tz: tz, elapsed: elapsed } }
 }
 
 named!(parse_time_zone_sign_plus <i64>, chain!(tag!("+"), || { 1 }));
@@ -54,36 +51,115 @@ named!( parse_digit_i64<i64>
                 , std::str::FromStr::from_str
                 )
       );
-
-named!( parse_person<Person>
-      , chain!( name:  map_res!(take_until_and_consume!(" <"), str::from_utf8)
-              ~ email: map_res!(take_until_and_consume!("> "), str::from_utf8)
-              ~ time: parse_digit_i64
+named!( nom_parse_date<Date>
+      , chain!( time: parse_digit_i64
               ~ tag!(" ")
               ~ tz_sign: parse_time_zone_sign
               ~ tz_fmt: parse_digit_i64
               , || {
                   let h = tz_fmt / 100;
                   let m = tz_fmt % 100;
-                  Person { name: name.to_string()
-                          , email: email.to_string()
-                          , date: Date { tz: tz_sign * (h * 60 + m), elapsed: time}
-                          }
-              }
-          )
+                  Date::new(tz_sign * (h * 60 + m), time)
+              })
       );
 
-named!( parse_hashref_sha1<HashRef<SHA1> >
-      , map_res!(map_res!( take!(<SHA1 as hash::Property>::DIGEST_SIZE * 2)
-                         , str::from_utf8
-                         )
-                , FromStr::from_str
-                )
+impl Display for Date {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let (s, r) = if self.tz < 0 { (-1, - self.tz) } else { (1, self.tz) };
+        let h = r / 60;
+        let m = r % 60;
+        write!(f, "{} {}", self.elapsed, s * (h * 100 + m))
+    }
+}
+impl Objectable for Date {
+    fn nom_parse(b: & [u8]) -> nom::IResult<&[u8], Self> { nom_parse_date(b) }
+}
+
+/// Git Person
+///
+/// * a name
+/// * an email address
+/// * a git::Date
+///
+/// # Example
+///
+/// ```
+/// use git::object::{Date, Person, Objectable};
+///
+/// let date = Date::new(1464729412, 60);
+/// let person = Person::new_str("Kevin Flynn", "kev@flynn.rs", date);
+/// let str = format!("{}", person);
+/// let person2 = Person::parse_bytes(str.as_bytes()).unwrap();
+/// assert_eq!(person, person2);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Person {
+    pub name: String,
+    pub email: String,
+    pub date: Date
+}
+impl Person {
+    pub fn new(name: String, email: String, date: Date) -> Self {
+        Person {
+            name: name,
+            email: email,
+            date: date
+        }
+    }
+    pub fn new_str(name: &str, email: &str, date: Date) -> Self {
+        Person {
+            name: name.to_string(),
+            email: email.to_string(),
+            date: date
+        }
+    }
+}
+
+named!( nom_parse_person<Person>
+      , chain!( name:  map_res!(take_until_and_consume!(" <"), str::from_utf8)
+              ~ email: map_res!(take_until_and_consume!("> "), str::from_utf8)
+              ~ date:  call!(Date::nom_parse)
+              , || Person::new_str(name, email, date)
+              )
       );
+
+impl Display for Person {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{} <{}> {}", self.name, self.email, self.date)
+    }
+}
+impl Objectable for Person {
+    fn nom_parse(b: & [u8]) -> nom::IResult<&[u8], Self> { nom_parse_person(b) }
+}
+
+/// contains the HashRef to a git tree
+///
+/// # Example
+///
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TreeRef<Hash: hash::Property+hash::Hasher> {
+    tree_ref: hash::HashRef<Hash>
+}
+impl<Hash: hash::Property+hash::Hasher> TreeRef<Hash> {
+    pub fn new(tr: hash::HashRef<Hash>) -> Self { TreeRef { tree_ref: tr } }
+}
+impl<Hash: hash::Property+hash::Hasher> Display for TreeRef<Hash> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "tree {}", self.tree_ref)
+    }
+}
+named!( nom_parse_tree_ref<TreeRef<SHA1> >
+      , chain!( tag!("tree ") ~ r: call!(Objectable::nom_parse)
+              , || TreeRef::new(r)
+              )
+      );
+impl Objectable for TreeRef<SHA1> {
+    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_tree_ref(b) }
+}
 
 named!( parse_commit_parent< HashRef<SHA1> >
       , chain!( tag!("parent ")
-              ~ r: parse_hashref_sha1
+              ~ r: call!(HashRef::nom_parse)
               ~ char!('\n')
               , || { return r }
               )
@@ -118,10 +194,10 @@ named!( parse_extras<BTreeMap<String, String> >
 
 named!( parse_commit<Commit<SHA1> >
       , chain!( tag!("commit ") ~ many1!(nom::digit) ~ char!('\0')
-              ~ tag!("tree ") ~ tree_ref: parse_hashref_sha1 ~ char!('\n')
+              ~ tree_ref: call!(TreeRef::nom_parse) ~ char!('\n')
               ~ parents:  parse_commit_parents
-              ~ tag!("author ")    ~ author: parse_person    ~ char!('\n')
-              ~ tag!("committer ") ~ committer: parse_person ~ char!('\n')
+              ~ tag!("author ")    ~ author: call!(Person::nom_parse) ~ char!('\n')
+              ~ tag!("committer ") ~ committer: call!(Person::nom_parse) ~ char!('\n')
               ~ encoding: opt!(parse_encoding)
               ~ extras: parse_extras
               ~ char!('\n')
@@ -140,7 +216,7 @@ named!( parse_commit<Commit<SHA1> >
 
 #[derive(Debug)]
 pub struct Commit<Hash: hash::Property+hash::Hasher> {
-    pub tree_ref: hash::HashRef<Hash>,
+    pub tree_ref: TreeRef<Hash>,
     pub parents: Vec<hash::HashRef<Hash>>,
     pub author: Person,
     pub committer: Person,
@@ -149,21 +225,42 @@ pub struct Commit<Hash: hash::Property+hash::Hasher> {
     pub message: String
 }
 
+/*
+impl Objectable for Commit<SHA1> {
+    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> {
+        parse_commit(b)
+    }
+}
+impl<Hash: hash::Property+hash::Hasher> Display for Commit<Hash> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!( f
+              , "commit {}\0"
+              , self.digest().to_hex()
+              )
+    }
+}
+*/
 impl Commit<SHA1> {
     pub fn parse(buf: &[u8]) -> Result<Commit<SHA1>> {
         match parse_commit(buf) {
-            nom::IResult::Done(_, c) => Ok(c),
-            nom::IResult::Error(err) => Err(GitError::Unknown(format!("{:?}", err))),
-            _                        => unimplemented!()
+            nom::IResult::Done(_, c)    => Ok(c),
+            nom::IResult::Error(err)    => Err(GitError::ParsingErrorUnknown(format!("{:?}", err))),
+            nom::IResult::Incomplete(n) => Err(GitError::ParsingErrorUnknown(format!("{:?}", n))),
         }
     }
 }
 
 pub struct Blob {
   data: Vec<u8>,
+  size: Vec<u8>
 }
 impl Blob {
-    fn new(d : &Vec<u8>) -> Self { Blob { data : d.clone() } }
+    fn new(d : &Vec<u8>) -> Self {
+        Blob {
+            data : d.clone(),
+            size : format!("{}", d.len()).into_bytes()
+        }
+    }
 }
 impl<'a> From<&'a[u8]> for Blob {
     fn from(d: &'a[u8]) -> Self {
@@ -177,11 +274,14 @@ impl<'a> From<&'a str> for Blob {
 }
 
 impl hash::Hashable for Blob {
-    fn get_chunk(&self, count: usize) -> Option<Vec<u8>> {
-        if count > 0 { return None }
-        let mut v = format!("blob {}\0", self.data.len()).into_bytes();
-        v.extend_from_slice(self.data.as_slice());
-        Some(v)
+    fn get_chunk(&self, count: usize) -> &[u8] {
+        match count {
+            0 => &b"blob "[..],
+            1 => self.size.as_ref(),
+            2 => &b"\0"[..],
+            3 => self.data.as_ref(),
+            _ => &b""[..]
+        }
     }
 }
 

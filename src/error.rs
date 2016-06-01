@@ -15,6 +15,8 @@ pub enum GitError {
     InvalidBranch(RefName),
     InvalidTag(RefName),
     InvalidRemote(RefName),
+    ParsingErrorNotEnough(Option<usize>),
+    ParsingErrorUnknown(String),
     IoError(String),
     Unknown(String)
 }
