@@ -109,6 +109,7 @@ impl<Hash: Property+Hasher> fmt::Display for HashRef<Hash> {
     }
 }
 impl<Hash: Property+Hasher> Objectable for HashRef<Hash> {
+    fn provide_size(&self) -> usize { Hash::DIGEST_SIZE * 2 }
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> {
         let hex_size = Hash::DIGEST_SIZE * 2;
         if b.len() < hex_size {
