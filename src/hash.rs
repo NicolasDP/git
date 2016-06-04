@@ -12,7 +12,7 @@ extern crate crypto;
 use self::crypto::digest::Digest;
 use self::crypto::sha1::Sha1;
 
-use objectable::Objectable;
+use objectable::{Objectable, Readable, Writable};
 use nom;
 
 pub trait Hasher {
@@ -108,8 +108,13 @@ impl<Hash: Property+Hasher> fmt::Display for HashRef<Hash> {
         write!(f, "{}", self.digest().to_hex())
     }
 }
-impl<Hash: Property+Hasher> Objectable for HashRef<Hash> {
+impl<Hash: Property+Hasher> Writable for HashRef<Hash> {
     fn provide_size(&self) -> usize { Hash::DIGEST_SIZE * 2 }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.digest().to_hex())
+    }
+}
+impl<Hash: Property+Hasher> Readable for HashRef<Hash> {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> {
         let hex_size = Hash::DIGEST_SIZE * 2;
         if b.len() < hex_size {

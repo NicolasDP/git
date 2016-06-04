@@ -22,6 +22,7 @@ pub use error::*;
 pub use refs::{Ref, SpecRef};
 
 mod error;
+#[macro_use]
 mod objectable;
 pub mod hash;
 pub mod repo;
@@ -186,8 +187,13 @@ impl Repo for GitFS {
             zlibr.read_to_string(&mut s)
                  .map_err(|err| GitError::IoError(format!("{:?}", err)))
                  .and_then(|_| {
-                     println!("XXX\n {}", s);
-                     Commit::parse_bytes(s.as_bytes())
+                     println!("XXXXXX\n{}", s);
+                     Object::parse_bytes(s.as_bytes())
+                 })
+                 .and_then(|o| {
+                     match o {
+                        Object::Commit(c) => Ok(c)
+                    }
                  })
         })
     }
@@ -285,13 +291,14 @@ mod tests {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
         let commit = git.get_commit(Ref::Link(SpecRef::head())).unwrap();
-        let parse_str = format!("{}", commit);
+        let mut parse_str = String::new();
+        commit.serialise(&mut parse_str).unwrap();
         println!("++ Commit 1++++++++++++++++++++++++++");
         println!("{}", commit);
-        let commit2 = Commit::parse_bytes(parse_str.as_bytes()).unwrap();
+        let commit2 = Object::parse_bytes(parse_str.as_bytes()).unwrap();
         println!("++ Commit 2++++++++++++++++++++++++++");
         println!("{}", commit2);
-        //assert!(false);
-        assert_eq!(commit, commit2);
+        assert!(false);
+        //assert_eq!(commit, commit2);
     }
 }

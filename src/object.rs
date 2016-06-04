@@ -11,7 +11,7 @@ use std::slice;
 
 use nom;
 
-pub use objectable::Objectable;
+pub use objectable::{Readable, Writable, Objectable};
 
 /// Git Date
 ///
@@ -68,17 +68,19 @@ named!( nom_parse_date<Date>
 
 impl Display for Date {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let (s, r) = if self.tz < 0 { (-1, - self.tz) } else { (1, self.tz) };
-        let h = r / 60;
-        let m = r % 60;
-        write!(f, "{} {}", self.elapsed, s * (h * 100 + m))
+        write!(f, "{}s {}", self.elapsed, self.tz)
     }
 }
-impl Objectable for Date {
-    fn provide_size(&self) -> usize {
-        let b = format!("{}", self);
-        b.len()
+impl Writable for Date {
+    fn serialise(&self, f: &mut Formatter) -> fmt::Result {
+        let (c, r) = if self.tz < 0 { ('-', - self.tz) } else { ('+', self.tz) };
+        let h = r / 60;
+        let m = r % 60;
+        write!(f, "{} {}{}", self.elapsed, c, h * 100 + m)
     }
+    fn provide_size(&self) -> usize { format!("{}", self).len() }
+}
+impl Readable for Date {
     fn nom_parse(b: & [u8]) -> nom::IResult<&[u8], Self> { nom_parse_date(b) }
 }
 
@@ -136,12 +138,70 @@ impl Display for Person {
         write!(f, "{} <{}> {}", self.name, self.email, self.date)
     }
 }
-impl Objectable for Person {
+
+impl Writable for Person {
     fn provide_size(&self) -> usize {
         self.name.len() + self.email.len() + self.date.provide_size() + 4
     }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        serialise!(f, self.name, " <", self.email, "> ", self.date)
+    }
+}
+impl Readable for Person {
     fn nom_parse(b: & [u8]) -> nom::IResult<&[u8], Self> { nom_parse_person(b) }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Author {
+    author: Person
+}
+impl Author {
+    pub fn new(p: Person) -> Self { Author { author: p } }
+}
+impl Display for Author {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "author {}", self.author) }
+}
+named!( nom_parse_author<Author>
+      , chain!( tag!("author ")
+              ~ author: call!(Person::nom_parse)
+              , || Author::new(author)
+              )
+      );
+impl Writable for Author {
+    fn provide_size(&self) -> usize { self.author.provide_size() + 7 }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        serialise!(f, "author ", self.author)
+    }
+}
+impl Readable for Author {
+    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_author(b) }
+}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Committer {
+    committer: Person
+}
+impl Committer {
+    pub fn new(p: Person) -> Self { Committer { committer: p } }
+}
+impl Display for Committer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "committer {}", self.committer) }
+}
+named!( nom_parse_committer<Committer>
+      , chain!( tag!("committer ")
+              ~ committer: call!(Person::nom_parse)
+              , || Committer::new(committer)
+              )
+      );
+impl Writable for Committer {
+    fn provide_size(&self) -> usize { self.committer.provide_size() + 9 }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        serialise!(f, "committer ", self.committer)
+    }
+}
+impl Readable for Committer {
+    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_committer(b) }
+}
+
 
 /// contains the HashRef to a git tree
 ///
@@ -170,15 +230,18 @@ impl<Hash: hash::Property+hash::Hasher> Display for TreeRef<Hash> {
     }
 }
 named!( nom_parse_tree_ref<TreeRef<SHA1> >
-      , chain!( tag!("tree ") ~ r: call!(Objectable::nom_parse)
+      , chain!( tag!("tree ") ~ r: call!(Readable::nom_parse)
               , || TreeRef::new(r)
               )
       );
-impl Objectable for TreeRef<SHA1> {
-    fn provide_size(&self) -> usize {
-        self.tree_ref.provide_size() + 5
-    }
+impl Readable for TreeRef<SHA1> {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_tree_ref(b) }
+}
+impl<Hash: hash::Property+hash::Hasher> Writable for TreeRef<Hash> {
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        serialise!(f, "tree ", self.tree_ref)
+    }
+    fn provide_size(&self) -> usize { self.tree_ref.provide_size() + 5 }
 }
 
 /// parent commit ref
@@ -213,9 +276,14 @@ named!( nom_parse_commit_parent<Parent<SHA1> >
               , || Parent::new(r)
               )
       );
-impl Objectable for Parent<SHA1> {
-    fn provide_size(&self) -> usize { self.parent_ref.provide_size() + 7 }
+impl Readable for Parent<SHA1> {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_commit_parent(b) }
+}
+impl<Hash: hash::Property+hash::Hasher> Writable for Parent<Hash> {
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        serialise!(f, "parent ", self.parent_ref)
+    }
+    fn provide_size(&self) -> usize { self.parent_ref.provide_size() + 7 }
 }
 
 /// collection of commit parents
@@ -279,11 +347,10 @@ impl<'a, Hash: hash::Property+hash::Hasher> IntoIterator for &'a mut Parents<Has
 
 impl<Hash: hash::Property+hash::Hasher> Display for Parents<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut t = Ok(());
         for ref parent in self {
-            t = write!(f, "{}\n", parent);
+            try!(write!(f, "{}\n", parent))
         }
-        t
+        Ok(())
     }
 }
 
@@ -292,7 +359,7 @@ named!( nom_parse_commit_parents<Parents<SHA1> >
               , || Parents::new_with(v)
               )
       );
-impl Objectable for Parents<SHA1> {
+impl<Hash: hash::Property+hash::Hasher> Writable for Parents<Hash> {
     fn provide_size(&self) -> usize {
         let mut sum = 0;
         for ref parent in self.parents.iter() {
@@ -300,6 +367,14 @@ impl Objectable for Parents<SHA1> {
         }
         sum
     }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for ref parent in &self.parents {
+            try!(serialise!(f, parent, "\n"));
+        }
+        Ok(())
+    }
+}
+impl Readable for Parents<SHA1> {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_commit_parents(b) }
 }
 
@@ -331,8 +406,11 @@ named!( nom_parse_encoding<Encoding>
               , || Encoding::new_str(e)
               )
       );
-impl Objectable for Encoding {
+impl Writable for Encoding {
     fn provide_size(&self) -> usize { self.raw.len() + 9 }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self) }
+}
+impl Readable for Encoding {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_encoding(b) }
 }
 
@@ -408,7 +486,7 @@ named!( nom_parse_extras<Extras>
               , || Extras::new_with(acc)
               )
       );
-impl Objectable for Extras {
+impl Writable for Extras {
     fn provide_size(&self) -> usize {
         let mut sum : usize = 0;
         for (key, value) in self.extras.iter() {
@@ -419,12 +497,14 @@ impl Objectable for Extras {
         }
         sum
     }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self) }
+}
+impl Readable for Extras {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_extras(b) }
 }
 
 named!( nom_parse_commit<Commit<SHA1> >
-      , chain!( tag!("commit ") ~ many1!(nom::digit) ~ char!('\0')
-              ~ tree_ref: call!(TreeRef::nom_parse) ~ char!('\n')
+      , chain!( tree_ref: call!(TreeRef::nom_parse) ~ char!('\n')
               ~ parents:  call!(Parents::nom_parse)
               ~ author: call!(Author::nom_parse) ~ char!('\n')
               ~ committer: call!(Committer::nom_parse) ~ char!('\n')
@@ -445,47 +525,6 @@ named!( nom_parse_commit<Commit<SHA1> >
       );
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Author {
-    author: Person
-}
-impl Author {
-    pub fn new(p: Person) -> Self { Author { author: p } }
-}
-impl Display for Author {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "author {}", self.author) }
-}
-named!( nom_parse_author<Author>
-      , chain!( tag!("author ")
-              ~ author: call!(Person::nom_parse)
-              , || Author::new(author)
-              )
-      );
-impl Objectable for Author {
-    fn provide_size(&self) -> usize { self.author.provide_size() + 7 }
-    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_author(b) }
-}
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Committer {
-    committer: Person
-}
-impl Committer {
-    pub fn new(p: Person) -> Self { Committer { committer: p } }
-}
-impl Display for Committer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "committer {}", self.committer) }
-}
-named!( nom_parse_committer<Committer>
-      , chain!( tag!("committer ")
-              ~ committer: call!(Person::nom_parse)
-              , || Committer::new(committer)
-              )
-      );
-impl Objectable for Committer {
-    fn provide_size(&self) -> usize { self.committer.provide_size() + 9 }
-    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_committer(b) }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Commit<Hash: hash::Property+hash::Hasher> {
     pub tree_ref: TreeRef<Hash>,
     pub parents: Parents<Hash>,
@@ -496,7 +535,7 @@ pub struct Commit<Hash: hash::Property+hash::Hasher> {
     pub message: String
 }
 
-impl Objectable for Commit<SHA1> {
+impl<Hash: hash::Hasher+hash::Property> Writable for Commit<Hash> {
     fn provide_size(&self) -> usize {
         0 + self.tree_ref.provide_size() + 1
           + self.parents.provide_size()
@@ -506,13 +545,15 @@ impl Objectable for Commit<SHA1> {
           + self.extras.provide_size()
           + self.message.len()
     }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self) }
+}
+impl Readable for Commit<SHA1> {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> {
         nom_parse_commit(b)
     }
 }
-impl Display for Commit<SHA1> {
+impl<Hash: hash::Hasher+hash::Property> Display for Commit<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "commit {}\0", self.provide_size()));
         try!(write!(f, "{}\n", self.tree_ref));
         try!(write!(f, "{}", self.parents));
         try!(write!(f, "{}\n", self.author));
@@ -524,6 +565,64 @@ impl Display for Commit<SHA1> {
         write!(f, "\n{}", self.message)
     }
 }
+
+enum ObjectType {
+  Commit
+}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Object<Hash: hash::Hasher+hash::Property> {
+    Commit(Commit<Hash>)
+}
+impl<Hash: hash::Hasher+hash::Property> Display for Object<Hash> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Object::Commit(ref c) => write!(f, "{}", c)
+        }
+    }
+}
+impl<Hash: hash::Hasher+hash::Property> Writable for Object<Hash> {
+    fn provide_size(&self) -> usize {
+        match self {
+            &Object::Commit(ref c) => {
+                let s = c.provide_size();
+                s + 8 + s.provide_size()
+            }
+        }
+    }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Object::Commit(ref c) => serialise!( f, "commit "
+                                                , c.provide_size()
+                                                , "\0"
+                                                , c
+                                                )
+        }
+    }
+}
+named!( nom_parse_object_type_commit<ObjectType>
+      , chain!( tag!("commit ") ~ many1!(nom::digit) ~ char!('\0')
+              , || ObjectType::Commit
+              )
+      );
+named!( nom_parse_object_type<ObjectType>
+      , alt!( nom_parse_object_type_commit
+            )
+      );
+named!( nom_parse_object_commit<Object<SHA1> >
+      , chain!( c: call!(Commit::nom_parse)
+              , || Object::Commit(c)
+              )
+      );
+named!( nom_parse_object<Object<SHA1> >
+      , chain!( call!(nom_parse_object_type)
+              ~ c: call!(nom_parse_object_commit)
+              , || c
+              )
+      );
+impl Readable for Object<SHA1> {
+    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_object(b) }
+}
+
 
 pub struct Blob {
   data: Vec<u8>,
