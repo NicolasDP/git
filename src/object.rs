@@ -21,13 +21,10 @@ pub use objectable::{Readable, Writable, Objectable};
 /// # Example
 ///
 /// ```
-/// use git::object::{Date, Objectable};
+/// use git::object::{Date};
 ///
 /// let date = Date::new(1464729412, 60);
-/// let str = format!("{}", date);
-/// let date2 = Date::parse_bytes(str.as_bytes()).unwrap();
-/// assert_eq!(date, date2);
-/// assert_eq!(date.provide_size(), str.len());
+/// println!("{}", date);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Date {
@@ -76,7 +73,8 @@ impl Writable for Date {
         let (c, r) = if self.tz < 0 { ('-', - self.tz) } else { ('+', self.tz) };
         let h = r / 60;
         let m = r % 60;
-        write!(f, "{} {}{}", self.elapsed, c, h * 100 + m)
+        let pad = if h < 10 { "0" } else { "" };
+        write!(f, "{} {}{}{}", self.elapsed, c, pad, h * 100 + m)
     }
     fn provide_size(&self) -> usize { format!("{}", self).len() }
 }
@@ -89,19 +87,6 @@ impl Readable for Date {
 /// * a name
 /// * an email address
 /// * a git::Date
-///
-/// # Example
-///
-/// ```
-/// use git::object::{Date, Person, Objectable};
-///
-/// let date = Date::new(1464729412, 60);
-/// let person = Person::new_str("Kevin Flynn", "kev@flynn.rs", date);
-/// let str = format!("{}", person);
-/// let person2 = Person::parse_bytes(str.as_bytes()).unwrap();
-/// assert_eq!(person, person2);
-/// assert_eq!(person.provide_size(), str.len());
-/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Person {
     pub name: String,
@@ -151,15 +136,32 @@ impl Readable for Person {
     fn nom_parse(b: & [u8]) -> nom::IResult<&[u8], Self> { nom_parse_person(b) }
 }
 
+/// Git Author
+///
+/// # Example
+///
+/// ```
+/// use git::object::{Date, Author, Readable, Writable};
+///
+/// let date = Date::new(1464729412, 60);
+/// let author = Author::new_str("Kevin Flynn", "kev@flynn.rs", date);
+/// let str = format!("{}", author);
+/// let author2 = Author::parse_bytes(str.as_bytes()).unwrap();
+/// assert_eq!(author, author2);
+/// assert_eq!(author.provide_size(), str.len());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Author {
     author: Person
 }
 impl Author {
     pub fn new(p: Person) -> Self { Author { author: p } }
+    pub fn new_str(n: &str, e: &str, d: Date) -> Self {
+        Author { author: Person::new_str(n, e, d) }
+    }
 }
 impl Display for Author {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "author {}", self.author) }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
 }
 named!( nom_parse_author<Author>
       , chain!( tag!("author ")
@@ -176,15 +178,32 @@ impl Writable for Author {
 impl Readable for Author {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_author(b) }
 }
+/// Git Committer
+///
+/// # Example
+///
+/// ```
+/// use git::object::{Date, Committer, Readable, Writable};
+///
+/// let date = Date::new(1464729412, 60);
+/// let committer = Committer::new_str("Kevin Flynn", "kev@flynn.rs", date);
+/// let str = format!("{}", committer);
+/// let committer2 = Committer::parse_bytes(str.as_bytes()).unwrap();
+/// assert_eq!(committer, committer2);
+/// assert_eq!(committer.provide_size(), str.len());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Committer {
     committer: Person
 }
 impl Committer {
     pub fn new(p: Person) -> Self { Committer { committer: p } }
+    pub fn new_str(n: &str, e: &str, d: Date) -> Self {
+        Committer { committer: Person::new_str(n, e, d) }
+    }
 }
 impl Display for Committer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "committer {}", self.committer) }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
 }
 named!( nom_parse_committer<Committer>
       , chain!( tag!("committer ")
@@ -193,7 +212,7 @@ named!( nom_parse_committer<Committer>
               )
       );
 impl Writable for Committer {
-    fn provide_size(&self) -> usize { self.committer.provide_size() + 9 }
+    fn provide_size(&self) -> usize { self.committer.provide_size() + 10 }
     fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
         serialise!(f, "committer ", self.committer)
     }
@@ -208,7 +227,7 @@ impl Readable for Committer {
 /// # Example
 ///
 /// ```
-/// use git::object::{TreeRef, Objectable};
+/// use git::object::{TreeRef, Writable, Readable};
 ///
 /// let bytes = &b"tree 3351570ee30575ccfc99b2ef17348515c54289e8"[..];
 /// let tree_ref = TreeRef::parse_bytes(bytes).unwrap();
@@ -225,9 +244,7 @@ impl<Hash: hash::Property+hash::Hasher> TreeRef<Hash> {
     pub fn new(tr: hash::HashRef<Hash>) -> Self { TreeRef { tree_ref: tr } }
 }
 impl<Hash: hash::Property+hash::Hasher> Display for TreeRef<Hash> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "tree {}", self.tree_ref)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
 }
 named!( nom_parse_tree_ref<TreeRef<SHA1> >
       , chain!( tag!("tree ") ~ r: call!(Readable::nom_parse)
@@ -249,7 +266,7 @@ impl<Hash: hash::Property+hash::Hasher> Writable for TreeRef<Hash> {
 /// # Example
 ///
 /// ```
-/// use git::object::{Parent, Objectable};
+/// use git::object::{Parent, Readable, Writable};
 ///
 /// let bytes = &b"parent 3351570ee30575ccfc99b2ef17348515c54289e8"[..];
 /// let parent = Parent::parse_bytes(bytes).unwrap();
@@ -266,9 +283,7 @@ impl<Hash: hash::Property+hash::Hasher> Parent<Hash> {
     pub fn new(pr: hash::HashRef<Hash>) -> Self { Parent { parent_ref: pr } }
 }
 impl<Hash: hash::Property+hash::Hasher> Display for Parent<Hash> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "parent {}", self.parent_ref)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
 }
 named!( nom_parse_commit_parent<Parent<SHA1> >
       , chain!( tag!("parent ")
@@ -291,7 +306,7 @@ impl<Hash: hash::Property+hash::Hasher> Writable for Parent<Hash> {
 /// # Examples
 ///
 /// ```
-/// use git::object::{Parent, Parents, Objectable};
+/// use git::object::{Parent, Parents, Readable, Writable};
 /// use git::hash::SHA1;
 ///
 /// let bytes1 = &b"parent 3351570ee30575ccfc99b2ef17348515c54289e8"[..];
@@ -346,12 +361,7 @@ impl<'a, Hash: hash::Property+hash::Hasher> IntoIterator for &'a mut Parents<Has
 }
 
 impl<Hash: hash::Property+hash::Hasher> Display for Parents<Hash> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for ref parent in self {
-            try!(write!(f, "{}\n", parent))
-        }
-        Ok(())
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
 }
 
 named!( nom_parse_commit_parents<Parents<SHA1> >
@@ -545,12 +555,24 @@ impl<Hash: hash::Hasher+hash::Property> Writable for Commit<Hash> {
           + self.extras.provide_size()
           + self.message.len()
     }
-    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self) }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(serialise!( f
+                       , self.tree_ref, "\n"
+                       , self.parents
+                       , self.author, "\n"
+                       , self.committer, "\n"
+                   ));
+        if let &Some(ref e) = &self.encoding {
+            try!(serialise!(f, e, "\n"));
+        }
+        serialise!( f
+                  , self.extras, "\n"
+                  , self.message
+                  )
+    }
 }
 impl Readable for Commit<SHA1> {
-    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> {
-        nom_parse_commit(b)
-    }
+    fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_commit(b) }
 }
 impl<Hash: hash::Hasher+hash::Property> Display for Commit<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -561,11 +583,12 @@ impl<Hash: hash::Hasher+hash::Property> Display for Commit<Hash> {
         if let &Some(ref e) = &self.encoding {
             try!(write!(f, "{}\n", e));
         }
-        try!(write!(f, "{}", self.extras));
-        write!(f, "\n{}", self.message)
+        try!(write!(f, "{}\n", self.extras));
+        write!(f, "{}", self.message)
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum ObjectType {
   Commit
 }
@@ -573,12 +596,9 @@ enum ObjectType {
 pub enum Object<Hash: hash::Hasher+hash::Property> {
     Commit(Commit<Hash>)
 }
+impl Objectable for Object<SHA1> { }
 impl<Hash: hash::Hasher+hash::Property> Display for Object<Hash> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Object::Commit(ref c) => write!(f, "{}", c)
-        }
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
 }
 impl<Hash: hash::Hasher+hash::Property> Writable for Object<Hash> {
     fn provide_size(&self) -> usize {

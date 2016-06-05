@@ -171,7 +171,7 @@ impl Repo for GitFS {
             .map_err(|err| GitError::IoError(format!("{}", err)))
             .and_then(|_| Ref::from_str(&s))
     }
-    fn get_commit(&self, r: Ref<SHA1>) -> Result<Commit<SHA1>> {
+    fn get_object(&self, r: Ref<SHA1>) -> Result<Object<SHA1>> {
         let hr : Result<HashRef<SHA1>> = match r {
             Ref::Link(sr) => self.get_ref_follow_links(sr),
             Ref::Hash(hr) => Ok(hr)
@@ -189,11 +189,6 @@ impl Repo for GitFS {
                  .and_then(|_| {
                      println!("XXXXXX\n{}", s);
                      Object::parse_bytes(s.as_bytes())
-                 })
-                 .and_then(|o| {
-                     match o {
-                        Object::Commit(c) => Ok(c)
-                    }
                  })
         })
     }
@@ -290,15 +285,13 @@ mod tests {
     fn git_fs_get_commit() {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
-        let commit = git.get_commit(Ref::Link(SpecRef::head())).unwrap();
-        let mut parse_str = String::new();
-        commit.serialise(&mut parse_str).unwrap();
+        let commit = git.get_object(Ref::Link(SpecRef::head())).unwrap();
+        let parse_str = format!("{}", commit);
         println!("++ Commit 1++++++++++++++++++++++++++");
         println!("{}", commit);
         let commit2 = Object::parse_bytes(parse_str.as_bytes()).unwrap();
         println!("++ Commit 2++++++++++++++++++++++++++");
         println!("{}", commit2);
-        assert!(false);
-        //assert_eq!(commit, commit2);
+        assert_eq!(commit, commit2);
     }
 }

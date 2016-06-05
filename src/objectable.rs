@@ -55,16 +55,11 @@ impl Writable for usize {
     fn provide_size(&self) -> usize { count_number_of_digit(*self) }
 }
 
-macro_rules! encode_obj
-
 #[macro_export]
 macro_rules! serialise {
     ($fmt:expr, $($arg:expr),+) => {{
         $(
-            match $arg.serialise($fmt) {
-                Ok(_) => (),
-                Err(err) => return Err(err)
-            };
+            try!($arg.serialise($fmt));
         )+
         Ok(())
     }};

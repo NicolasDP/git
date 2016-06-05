@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use error::*;
 use hash::{SHA1, HashRef};
 use refs::{SpecRef, Ref};
-use object::Commit;
+use object::Object;
 
 pub trait Repo {
     fn is_valid(&self) -> Result<()>;
@@ -16,7 +16,7 @@ pub trait Repo {
             Ref::Hash(h) => Ok(h)
         }
     }
-    fn get_commit(&self, r: Ref<SHA1>) -> Result<Commit<SHA1>>;
+    fn get_object(&self, r: Ref<SHA1>) -> Result<Object<SHA1>>;
 
     fn get_head(&self) -> Result<Ref<SHA1>> { self.get_ref(SpecRef::Head) }
     fn list_branches(&self) -> Result<BTreeSet<SpecRef>>;

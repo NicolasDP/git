@@ -12,7 +12,7 @@ extern crate crypto;
 use self::crypto::digest::Digest;
 use self::crypto::sha1::Sha1;
 
-use objectable::{Objectable, Readable, Writable};
+use objectable::{Readable, Writable};
 use nom;
 
 pub trait Hasher {
@@ -39,6 +39,7 @@ pub trait Hashable {
     }
 }
 
+#[derive(Clone)]
 pub struct SHA1 {
   state: crypto::sha1::Sha1,
 }
