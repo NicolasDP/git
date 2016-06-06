@@ -1,6 +1,6 @@
 use hash;
 use hash::{SHA1, HashRef};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, btree_set};
 use std;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -8,6 +8,10 @@ use std::str;
 use std::ops::{Deref, DerefMut};
 use std::iter::{FromIterator, IntoIterator};
 use std::slice;
+use std::path::PathBuf;
+use std::cmp::Ordering;
+use std::borrow::Borrow;
+use std::ops::{Sub, BitOr, BitXor, BitAnd};
 
 use nom;
 
@@ -242,6 +246,9 @@ pub struct TreeRef<Hash: hash::Property+hash::Hasher> {
 }
 impl<Hash: hash::Property+hash::Hasher> TreeRef<Hash> {
     pub fn new(tr: hash::HashRef<Hash>) -> Self { TreeRef { tree_ref: tr } }
+}
+impl<Hash: hash::Property+hash::Hasher> hash::HasHashRef<Hash> for TreeRef<Hash> {
+    fn hash_ref(&self) -> HashRef<Hash> { self.tree_ref.hash_ref() }
 }
 impl<Hash: hash::Property+hash::Hasher> Display for TreeRef<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
@@ -588,9 +595,211 @@ impl<Hash: hash::Hasher+hash::Property> Display for Commit<Hash> {
     }
 }
 
+/* ------------------- Tree ------------------------------------------------ */
+
+/// permission associated to a given type
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Permission {
+    Read,
+    Write,
+    Executable
+}
+
+/// set of permissions associated to a given Tree entity
+///
+/// # TODO
+///
+/// This type is not stable yet. We will move to EnumSet when it
+/// will be freezed and stable.
+pub type PermissionSet = BTreeSet<Permission>;
+#[inline(always)]
+fn permission_write(ps: &PermissionSet) -> usize {
+    let mut set = 0;
+    if ps.contains(&Permission::Read) { set += 1 }
+    if ps.contains(&Permission::Write) { set += 2 }
+    if ps.contains(&Permission::Executable) { set += 4 }
+    set
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum ObjectType {
-  Commit
+pub struct Permissions {
+    // TODO: do we need to set the extras 3 bits as well?
+    user: PermissionSet,
+    group: PermissionSet,
+    other: PermissionSet
+}
+impl Writable for Permissions {
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!( f
+              , "{extras}{user}{group}{other}"
+              , extras = 0
+              , user = permission_write(&self.user)
+              , group = permission_write(&self.group)
+              , other = permission_write(&self.other)
+              )
+    }
+    fn provide_size(&self) -> usize { 4 }
+}
+// TODO: Readable ?
+
+/// the different type of entity managed by our current implementation
+///
+/// TODO: include SymbolicLink and GitLink
+#[derive(Debug, Clone)]
+pub enum TreeEnt {
+    Dir(Permissions, PathBuf, HashRef<SHA1>),
+    File(Permissions, PathBuf, HashRef<SHA1>)
+    /*
+    SymbolicLink(Permissions, PathBuf, HashRef<SHA1>),
+    GitLink(Permissions, PathBuf, HashRef<SHA1>)
+    */
+}
+impl Writable for TreeEnt {
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        serialise!( f
+                  , self.get_ent_type()
+                  , self.get_premission()
+                  , " "
+                  , format!("{:?}", self.get_file_path())
+                  , "\0"
+                  , self.get_hash_ref().digest()
+                  )
+    }
+    fn provide_size(&self) -> usize {
+        8 + self.get_file_path().as_os_str().len()
+    }
+}
+// TODO: Readable ?
+impl Borrow<PathBuf> for TreeEnt {
+    fn borrow(&self) -> &PathBuf { self.get_file_path() }
+}
+impl Borrow<HashRef<SHA1>> for TreeEnt {
+    fn borrow(&self) -> &HashRef<SHA1> { self.get_hash_ref() }
+}
+impl TreeEnt {
+    pub fn get_ent_type(&self) -> String {
+        match self {
+            &TreeEnt::Dir(_, _, _) => "10".to_string(),
+            &TreeEnt::File(_, _, _) => "04".to_string()
+        }
+    }
+    pub fn get_premission(&self) -> &Permissions {
+        match self {
+            &TreeEnt::Dir(ref p, _, _) => p,
+            &TreeEnt::File(ref p, _, _) => p
+        }
+    }
+    pub fn get_hash_ref(&self) -> &HashRef<SHA1> {
+        match self {
+            &TreeEnt::Dir(_, _, ref pb) => pb,
+            &TreeEnt::File(_, _, ref pb) => pb
+        }
+    }
+    pub fn get_file_path(&self) -> &PathBuf {
+        match self {
+            &TreeEnt::Dir(_, ref pb, _) => pb,
+            &TreeEnt::File(_, ref pb, _) => pb
+        }
+    }
+}
+impl PartialEq for TreeEnt {
+    fn eq(&self, rhs: &TreeEnt) -> bool { self.get_file_path() == rhs.get_file_path() }
+}
+impl Eq for TreeEnt {}
+impl PartialOrd for TreeEnt {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.get_file_path().partial_cmp(other.get_file_path())
+    }
+}
+impl Ord for TreeEnt {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.get_file_path().cmp(other.get_file_path())
+    }
+}
+
+/// a tree is a collection of Tree or Blob
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Tree {
+    tree: BTreeSet<TreeEnt>
+}
+impl Borrow<BTreeSet<TreeEnt>> for Tree {
+    fn borrow(&self) -> &BTreeSet<TreeEnt> { &self.tree }
+}
+impl Tree {
+    fn new_with(bt: BTreeSet<TreeEnt>) -> Self { Tree {tree: bt} }
+    pub fn new() -> Self { Tree { tree: BTreeSet::new() }}
+    pub fn iter(&self) -> btree_set::Iter<TreeEnt> { self.tree.iter() }
+    pub fn difference<'a>(&'a self, other: &'a Tree) -> btree_set::Difference<'a, TreeEnt> {
+        self.tree.difference(&other.tree)
+    }
+    pub fn symmetric_difference<'a>(&'a self, other: &'a Tree)
+        -> btree_set::SymmetricDifference<'a, TreeEnt>
+    {
+        self.tree.symmetric_difference(&other.tree)
+    }
+    pub fn intersection<'a>(&'a self, other: &'a Tree) -> btree_set::Intersection<'a, TreeEnt> {
+        self.tree.intersection(&other.tree)
+    }
+    pub fn union<'a>(&'a self, other: &'a Tree) -> btree_set::Union<'a, TreeEnt> {
+        self.tree.union(&other.tree)
+    }
+    pub fn len(&self) -> usize { self.tree.len() }
+    pub fn is_empty(&self) -> bool { self.tree.is_empty() }
+    pub fn clear(&mut self) { self.tree.clear() }
+    pub fn contains(&self, value: PathBuf) -> bool { self.tree.contains(&value) }
+    pub fn get(&self, value: PathBuf) -> Option<&TreeEnt> { self.tree.get(&value) }
+    pub fn is_disjoint(&self, other: &Tree) -> bool { self.tree.is_disjoint(&other.tree) }
+    pub fn is_subset(&self, other: &Tree) -> bool { self.tree.is_subset(&other.tree) }
+    pub fn is_superset(&self, other: &Tree) -> bool { self.tree.is_superset(&other.tree) }
+    pub fn insert(&mut self, value: TreeEnt) -> bool { self.tree.insert(value) }
+    pub fn replace(&mut self, value: TreeEnt) -> Option<TreeEnt> { self.tree.replace(value) }
+    pub fn remove(&mut self, value: &PathBuf) -> bool { self.tree.remove(value) }
+    pub fn take(&mut self, value: &PathBuf) -> Option<TreeEnt> { self.tree.take(value) }
+}
+impl FromIterator<TreeEnt> for Tree {
+    fn from_iter<I: IntoIterator<Item=TreeEnt>>(iter: I) -> Tree {
+        Tree::new_with(BTreeSet::from_iter(iter))
+    }
+}
+impl IntoIterator for Tree {
+    type Item = TreeEnt;
+    type IntoIter = btree_set::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter { self.tree.into_iter() }
+}
+impl<'a> IntoIterator for &'a Tree {
+    type Item = &'a TreeEnt;
+    type IntoIter = btree_set::Iter<'a, TreeEnt>;
+    fn into_iter(self) -> Self::IntoIter { self.tree.iter() }
+}
+impl Extend<TreeEnt> for Tree {
+    fn extend<Iter: IntoIterator<Item=TreeEnt>>(&mut self, iter: Iter) {
+        self.tree.extend(iter)
+    }
+}
+impl<'a, 'b> Sub<&'b Tree> for &'a Tree {
+    type Output = Tree;
+    fn sub(self, rhs: &'b Tree) -> Tree { Tree::new_with(self.tree.sub(&rhs.tree)) }
+}
+impl<'a, 'b> BitXor<&'b Tree> for &'a Tree {
+    type Output = Tree;
+    fn bitxor(self, rhs: &'b Tree) -> Tree { Tree::new_with(self.tree.bitxor(&rhs.tree)) }
+}
+impl<'a, 'b> BitAnd<&'b Tree> for &'a Tree {
+    type Output = Tree;
+    fn bitand(self, rhs: &'b Tree) -> Tree { Tree::new_with(self.tree.bitand(&rhs.tree)) }
+}
+impl<'a, 'b> BitOr<&'b Tree> for &'a Tree {
+    type Output = Tree;
+    fn bitor(self, rhs: &'b Tree) -> Tree { Tree::new_with(self.tree.bitor(&rhs.tree)) }
+}
+
+/* ------------------- Object ---------------------------------------------- */
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ObjectType {
+  Commit,
+  Tree
 }
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Object<Hash: hash::Hasher+hash::Property> {

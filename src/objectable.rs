@@ -1,5 +1,6 @@
 use error::*;
 use std::fmt;
+use std::fmt::{Write};
 use std::str;
 
 use nom;
@@ -53,6 +54,15 @@ fn count_number_of_digit(s_: usize) -> usize {
 impl Writable for usize {
     fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self) }
     fn provide_size(&self) -> usize { count_number_of_digit(*self) }
+}
+impl<'a> Writable for &'a [u8] {
+    fn provide_size(&self) -> usize { self.len() }
+    fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for u in self.iter() {
+            try!(f.write_char(*u as char))
+        }
+        Ok(())
+    }
 }
 
 #[macro_export]

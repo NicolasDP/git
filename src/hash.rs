@@ -39,7 +39,6 @@ pub trait Hashable {
     }
 }
 
-#[derive(Clone)]
 pub struct SHA1 {
   state: crypto::sha1::Sha1,
 }
@@ -68,10 +67,19 @@ impl Property for SHA1 {
     const PREFIX_SIZE: usize = 1;
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct HashRef<Hash : Property + Hasher> {
     hash: Vec<u8>,
     _hash_type: PhantomData<Hash>,
+}
+impl<Hash : Property + Hasher> Clone for HashRef<Hash> {
+    fn clone(&self) -> Self { Self::new_with(&self.hash) }
+}
+pub trait HasHashRef<Hash: Property + Hasher> {
+    fn hash_ref(&self) -> HashRef<Hash>;
+}
+impl<Hash: Property + Hasher> HasHashRef<Hash> for HashRef<Hash> {
+    fn hash_ref(&self) -> HashRef<Hash> { self.clone() }
 }
 
 impl<Hash : Property + Hasher> HashRef<Hash> {

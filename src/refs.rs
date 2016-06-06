@@ -3,7 +3,7 @@ use std::path::{PathBuf, Path, Component};
 use std::str::FromStr;
 use std::fmt;
 use error::{GitError, Result};
-use hash::{Property, Hasher, HashRef};
+use hash::{Property, Hasher, HashRef, HasHashRef};
 
 pub type RefName = PathBuf;
 
@@ -120,6 +120,10 @@ impl<'a> From<&'a SpecRef> for PathBuf {
 pub enum Ref<Hash: Property + Hasher> {
     Hash(HashRef<Hash>),
     Link(SpecRef)
+}
+impl<Hash: Property + Hasher> Ref<Hash> {
+    pub fn hash<T: HasHashRef<Hash> >(t: &T) -> Self { Ref::Hash(t.hash_ref()) }
+    pub fn link(sr: SpecRef) -> Self { Ref::Link(sr) }
 }
 impl<Hash: Property + Hasher> From<Ref<Hash>> for PathBuf {
     fn from(sr: Ref<Hash>) -> Self {
