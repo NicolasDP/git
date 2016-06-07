@@ -275,7 +275,7 @@ mod tests {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
         let branches = git.list_remotes().unwrap();
-        assert!(branches.contains(&SpecRef::remote("exp", "master")));
+        assert!(branches.contains(&SpecRef::remote("origin", "master")));
         //assert!(branches.contains(&SpecRef::remote("origin", "master")));
     }
     #[test]
