@@ -9,6 +9,7 @@ use refs::RefName;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum GitError {
+    InvalidHashSize(usize, usize),
     MissingDirectory(PathBuf),
     MissingFile(PathBuf),
     InvalidRef(RefName),

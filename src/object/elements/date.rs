@@ -11,7 +11,7 @@ use ::objectable::{Readable, Writable};
 /// # Example
 ///
 /// ```
-/// use git::object::{Date};
+/// use git::object::elements::date::Date;
 ///
 /// let date = Date::new(1464729412, 60);
 /// println!("{}", date);

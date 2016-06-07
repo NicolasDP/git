@@ -63,7 +63,9 @@ impl Readable for Person {
 /// # Example
 ///
 /// ```
-/// use git::object::{Date, Author, Readable, Writable};
+/// use git::object::elements::date::Date;
+/// use git::object::elements::person::{Author};
+/// use git::object::{Readable, Writable};
 ///
 /// let date = Date::new(1464729412, 60);
 /// let author = Author::new_str("Kevin Flynn", "kev@flynn.rs", date);
@@ -105,7 +107,9 @@ impl Readable for Author {
 /// # Example
 ///
 /// ```
-/// use git::object::{Date, Committer, Readable, Writable};
+/// use git::object::elements::date::Date;
+/// use git::object::elements::person::{Committer};
+/// use git::object::{Readable, Writable};
 ///
 /// let date = Date::new(1464729412, 60);
 /// let committer = Committer::new_str("Kevin Flynn", "kev@flynn.rs", date);

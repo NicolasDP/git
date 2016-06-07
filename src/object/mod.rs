@@ -3,7 +3,7 @@ pub mod objectable;
 pub mod elements;
 
 use hash;
-use hash::{SHA1, HashRef};
+use hash::{SHA1};
 use std::collections::{BTreeMap, BTreeSet, btree_set};
 use std::fmt;
 use std::fmt::{Display};
@@ -15,11 +15,13 @@ use std::path::PathBuf;
 use std::cmp::Ordering;
 use std::borrow::Borrow;
 use std::ops::{Sub, BitOr, BitXor, BitAnd};
+use std::convert::TryFrom;
 
 use nom;
 
 pub use objectable::{Readable, Writable, Objectable};
 use elements::person::{Author, Committer};
+use elements::hash::{HashRef, HasHashRef};
 
 /// contains the HashRef to a git tree
 ///
@@ -37,12 +39,12 @@ use elements::person::{Author, Committer};
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TreeRef<Hash: hash::Property> {
-    tree_ref: hash::HashRef<Hash>
+    tree_ref: HashRef<Hash>
 }
 impl<Hash: hash::Property> TreeRef<Hash> {
-    pub fn new(tr: hash::HashRef<Hash>) -> Self { TreeRef { tree_ref: tr } }
+    pub fn new(tr: HashRef<Hash>) -> Self { TreeRef { tree_ref: tr } }
 }
-impl<Hash: hash::Property> hash::HasHashRef<Hash> for TreeRef<Hash> {
+impl<Hash: hash::Property> HasHashRef<Hash> for TreeRef<Hash> {
     fn hash_ref(&self) -> HashRef<Hash> { self.tree_ref.hash_ref() }
 }
 impl<Hash: hash::Property> Display for TreeRef<Hash> {
@@ -79,10 +81,10 @@ impl<Hash: hash::Property> Writable for TreeRef<Hash> {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Parent<Hash: hash::Property> {
-    parent_ref: hash::HashRef<Hash>
+    parent_ref: HashRef<Hash>
 }
 impl<Hash: hash::Property> Parent<Hash> {
-    pub fn new(pr: hash::HashRef<Hash>) -> Self { Parent { parent_ref: pr } }
+    pub fn new(pr: HashRef<Hash>) -> Self { Parent { parent_ref: pr } }
 }
 impl<Hash: hash::Property> Display for Parent<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.serialise(f) }
@@ -528,7 +530,7 @@ impl Writable for TreeEnt {
                   , " "
                   , format!("{:?}", self.get_file_path())
                   , "\0"
-                  , self.get_hash_ref().digest()
+                  , self.get_hash_ref().as_ref()
                   )
     }
     fn provide_size(&self) -> usize {
@@ -571,8 +573,7 @@ impl Display for TreeEnt {
 }
 impl TreeEnt {
     fn new_from(ty: &str, perm: Permissions, path: PathBuf, hash_bytes: &[u8]) -> Self {
-        if hash_bytes.len() != <hash::SHA1 as hash::Property>::DIGEST_SIZE { panic!("wrong size of Digest"); }
-        let hash = hash::HashRef::new_with(hash_bytes);
+        let hash = HashRef::try_from(hash_bytes).expect("expected a valid Hash");
         match ty {
             "10" => TreeEnt::Dir(perm, path, hash),
             "4" => TreeEnt::File(perm, path, hash),
@@ -866,6 +867,8 @@ mod tests {
     use hash;
     use hash::Hashable;
     use object;
+    use object::elements::hash::HashRef;
+    use std::convert::TryFrom;
 
     #[test]
     fn test_blob() {
@@ -873,10 +876,10 @@ mod tests {
         let expected_digest = [18, 224, 96, 142, 217, 247, 183, 20, 57, 121, 97, 167, 8, 7, 75, 151, 22, 166, 74, 33];
         let expected_prefix = &expected_digest[..1];
         let expected_loose  = &expected_digest[1..];
-        let r : hash::HashRef<hash::SHA1> = data.hash();
+        let r : HashRef<hash::SHA1> = HashRef::try_from(data.hash::<hash::SHA1>()).unwrap();
         assert_eq!(expected_prefix, r.prefix());
         assert_eq!(expected_loose,  r.loose());
-        assert_eq!(expected_digest, r.digest())
+        assert_eq!(expected_digest, r.as_ref())
     }
 }
 
@@ -886,13 +889,15 @@ mod bench {
     use hash::Hashable;
     use object;
     use test::Bencher;
+    use object::elements::hash::HashRef;
+    use std::convert::TryFrom;
 
     #[bench]
     pub fn hash_(bh: & mut Bencher) {
         let v : Vec<u8> = vec![0; 65536];
         let bytes : object::Blob = From::from(&v as &[u8]);
         bh.iter( || {
-            let _ : hash::HashRef<hash::SHA1> = bytes.hash();
+            let _ : HashRef<hash::SHA1> = HashRef::try_from(bytes.hash::<hash::SHA1>()).unwrap();
         });
         bh.bytes = bytes.data.len() as u64;
     }

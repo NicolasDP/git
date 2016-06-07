@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
 use error::*;
-use hash::{SHA1, HashRef, HasHashRef};
+use hash::SHA1;
+use ::object::elements::hash::{HashRef, HasHashRef};
 use refs::{SpecRef, Ref};
 use object::Object;
 

@@ -3,7 +3,7 @@ use std::path::{PathBuf, Path, Component};
 use std::str::FromStr;
 use std::fmt;
 use error::{GitError, Result};
-use hash::{Property, HashRef, HasHashRef};
+use object::elements::hash::*;
 
 pub type RefName = PathBuf;
 
