@@ -221,6 +221,13 @@ impl Repo for GitFS {
 mod tests {
     use super::*;
     use std::path::*;
+    use std::str::FromStr;
+
+    fn get_test_commit() -> Ref<SHA1> {
+        let commit_ref_hex = "5a307bb41b6e45a057469a3fe99097232b697a8a";
+        let commit_ref = HashRef::from_str(commit_ref_hex).unwrap();
+        Ref::hash(&commit_ref)
+    }
 
     #[test]
     fn new() {
@@ -276,14 +283,14 @@ mod tests {
         let git = GitFS::new(&path).unwrap();
         let branches = git.list_remotes().unwrap();
         println!("{:?}", branches);
-        assert!(branches.contains(&SpecRef::remote("origin", "master")));
-        //assert!(branches.contains(&SpecRef::remote("origin", "master")));
+        assert!( branches.contains(&SpecRef::remote("origin", "HEAD"))
+                 || branches.contains(&SpecRef::remote("origin", "master")));
     }
     #[test]
     fn git_fs_get_commit() {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
-        let commit = git.get_object_ref(Ref::Link(SpecRef::head())).unwrap();
+        let commit = git.get_object_ref(get_test_commit()).unwrap();
         let parse_str = format!("{}", commit);
         println!("++ Commit 1++++++++++++++++++++++++++");
         println!("{}", commit);
@@ -292,13 +299,14 @@ mod tests {
         println!("{}", commit2);
         assert_eq!(commit, commit2);
     }
+
     #[test]
     fn git_fs_get_tree() {
         let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
         // get the head
         let commit =
-            git.get_object_ref(Ref::Link(SpecRef::head()))
+            git.get_object_ref(get_test_commit())
                .map(|o| match o {
                    Object::Commit(c) => c,
                    _ => panic!("This is not a tree...")
