@@ -15,18 +15,17 @@ use self::crypto::sha1::Sha1;
 use objectable::{Readable, Writable};
 use nom;
 
-pub trait Hasher {
+pub trait Property {
+    const DIGEST_SIZE: usize;
+    const PREFIX_SIZE: usize;
+
     fn new() -> Self;
     fn write<T: AsRef<[u8]>>(&mut self, bytes: T);
     fn finish(&mut self) -> Vec<u8>;
 }
-pub trait Property {
-    const DIGEST_SIZE: usize;
-    const PREFIX_SIZE: usize;
-}
 pub trait Hashable {
     fn get_chunk<'a>(&'a self, usize) -> &'a [u8];
-    fn hash<Hash : Property + Hasher> (&self) -> HashRef<Hash> {
+    fn hash<Hash : Property> (&self) -> HashRef<Hash> {
         let mut hs = Hash::new();
         let mut i = 0;
         loop {
@@ -50,7 +49,7 @@ impl fmt::Debug for SHA1 {
         write!(f, "SHA1")
     }
 }
-impl Hasher for SHA1 {
+impl Property for SHA1 {
     fn new() -> Self { SHA1 { state: Sha1::new() } }
     fn write<T: AsRef<[u8]>>(&mut self, bytes: T) {
         self.state.input(bytes.as_ref());
@@ -60,37 +59,35 @@ impl Hasher for SHA1 {
         self.state.result(out.as_mut_slice());
         out
     }
-}
-
-impl Property for SHA1 {
     const DIGEST_SIZE: usize = 20;
     const PREFIX_SIZE: usize = 1;
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct HashRef<Hash : Property + Hasher> {
+pub struct HashRef<Hash : Property> {
     hash: Vec<u8>,
     _hash_type: PhantomData<Hash>,
 }
-impl<Hash : Property + Hasher> Clone for HashRef<Hash> {
+impl<Hash : Property> Clone for HashRef<Hash> {
     fn clone(&self) -> Self { Self::new_with(&self.hash) }
 }
-pub trait HasHashRef<Hash: Property + Hasher> {
+pub trait HasHashRef<Hash: Property> {
     fn hash_ref(&self) -> HashRef<Hash>;
 }
-impl<Hash: Property + Hasher> HasHashRef<Hash> for HashRef<Hash> {
+impl<Hash: Property> HasHashRef<Hash> for HashRef<Hash> {
     fn hash_ref(&self) -> HashRef<Hash> { self.clone() }
 }
 
-impl<Hash : Property + Hasher> HashRef<Hash> {
+impl<Hash : Property> HashRef<Hash> {
     pub fn new() -> Self {
         HashRef
             { hash       : Vec::with_capacity(Hash::DIGEST_SIZE)
             , _hash_type : PhantomData
             }
     }
-    fn new_with<T: AsRef<[u8]>>(data: T) -> Self {
-        let mut v = Vec::with_capacity(20);
+    pub fn new_with<T: AsRef<[u8]>>(data: T) -> Self {
+        if data.as_ref().len() != Hash::DIGEST_SIZE { panic!("invalid size"); }
+        let mut v = Vec::with_capacity(Hash::DIGEST_SIZE);
         v.extend_from_slice(data.as_ref());
         HashRef
             { hash : v.clone()
@@ -112,18 +109,18 @@ impl<Hash : Property + Hasher> HashRef<Hash> {
     }
 }
 
-impl<Hash: Property+Hasher> fmt::Display for HashRef<Hash> {
+impl<Hash: Property> fmt::Display for HashRef<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.digest().to_hex())
     }
 }
-impl<Hash: Property+Hasher> Writable for HashRef<Hash> {
+impl<Hash: Property> Writable for HashRef<Hash> {
     fn provide_size(&self) -> usize { Hash::DIGEST_SIZE * 2 }
     fn serialise(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.digest().to_hex())
     }
 }
-impl<Hash: Property+Hasher> Readable for HashRef<Hash> {
+impl<Hash: Property> Readable for HashRef<Hash> {
     fn nom_parse(b: &[u8]) -> nom::IResult<&[u8], Self> {
         let hex_size = Hash::DIGEST_SIZE * 2;
         if b.len() < hex_size {
@@ -139,7 +136,7 @@ impl<Hash: Property+Hasher> Readable for HashRef<Hash> {
     }
 }
 
-impl<Hash: Property+Hasher> FromStr for HashRef<Hash> {
+impl<Hash: Property> FromStr for HashRef<Hash> {
     type Err = GitError;
     fn from_str(s: &str) -> Result<Self> {
         s.from_hex()
@@ -154,7 +151,7 @@ impl<Hash: Property+Hasher> FromStr for HashRef<Hash> {
     }
 }
 
-impl<Hash: Property+Hasher> From<Vec<u8>> for HashRef<Hash> {
+impl<Hash: Property> From<Vec<u8>> for HashRef<Hash> {
     fn from(data: Vec<u8>) -> Self { HashRef { hash: data, _hash_type: PhantomData } }
 }
 impl<'a> From<&'a Vec<u8>> for HashRef<SHA1> {

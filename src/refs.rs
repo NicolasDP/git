@@ -3,7 +3,7 @@ use std::path::{PathBuf, Path, Component};
 use std::str::FromStr;
 use std::fmt;
 use error::{GitError, Result};
-use hash::{Property, Hasher, HashRef, HasHashRef};
+use hash::{Property, HashRef, HasHashRef};
 
 pub type RefName = PathBuf;
 
@@ -117,15 +117,15 @@ impl<'a> From<&'a SpecRef> for PathBuf {
 /// assert_eq!(master_branch, master_ref);
 /// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
-pub enum Ref<Hash: Property + Hasher> {
+pub enum Ref<Hash: Property> {
     Hash(HashRef<Hash>),
     Link(SpecRef)
 }
-impl<Hash: Property + Hasher> Ref<Hash> {
+impl<Hash: Property> Ref<Hash> {
     pub fn hash<T: HasHashRef<Hash> >(t: &T) -> Self { Ref::Hash(t.hash_ref()) }
     pub fn link(sr: SpecRef) -> Self { Ref::Link(sr) }
 }
-impl<Hash: Property + Hasher> From<Ref<Hash>> for PathBuf {
+impl<Hash: Property> From<Ref<Hash>> for PathBuf {
     fn from(sr: Ref<Hash>) -> Self {
         let pb = PathBuf::new();
         match sr {
@@ -134,7 +134,7 @@ impl<Hash: Property + Hasher> From<Ref<Hash>> for PathBuf {
         }
     }
 }
-impl<'a, Hash: Property + Hasher> From<&'a Ref<Hash>> for PathBuf {
+impl<'a, Hash: Property> From<&'a Ref<Hash>> for PathBuf {
     fn from(sr: &'a Ref<Hash>) -> Self {
         let pb = PathBuf::new();
         match sr {
@@ -144,7 +144,7 @@ impl<'a, Hash: Property + Hasher> From<&'a Ref<Hash>> for PathBuf {
     }
 }
 
-impl<Hash: Property+Hasher> fmt::Display for Ref<Hash> {
+impl<Hash: Property> fmt::Display for Ref<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Ref::Hash(ref r)   => write!(f, "{}", r),
@@ -153,7 +153,7 @@ impl<Hash: Property+Hasher> fmt::Display for Ref<Hash> {
     }
 }
 
-impl<Hash: Property+Hasher> FromStr for Ref<Hash> {
+impl<Hash: Property> FromStr for Ref<Hash> {
     type Err = GitError;
     fn from_str(s: &str) -> Result<Self> {
         if s.starts_with("ref: ") {

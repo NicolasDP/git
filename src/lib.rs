@@ -22,8 +22,6 @@ pub use error::*;
 pub use refs::{Ref, SpecRef};
 
 mod error;
-#[macro_use]
-mod objectable;
 pub mod hash;
 pub mod repo;
 pub mod refs;
@@ -300,6 +298,7 @@ mod tests {
             git.get_object_ref(Ref::Link(SpecRef::head()))
                .map(|o| match o {
                    Object::Commit(c) => c,
+                   _ => panic!("This is not a tree...")
                }).expect("expected to read a commit object");
         println!("++ Commit ++++++++++++++++++++++++++");
         println!("{}", commit);
@@ -307,7 +306,7 @@ mod tests {
         let tree = git.get_object(&commit.tree_ref)
                       .expect("expected to read a Tree object");
         println!("++ Tree ++++++++++++++++++++++++++");
-        println!("{}", tree);
+        println!("{}", tree.to_string());
         assert!(false);
     }
 }
