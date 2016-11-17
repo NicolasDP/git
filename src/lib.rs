@@ -185,7 +185,6 @@ impl Repo for GitFS {
         zlibr.read_to_end(&mut s)
              .map_err(|err| GitError::IoError(format!("{:?}", err)))
              .and_then(|_| {
-                 println!("XXXXXX\n{}", unsafe { String::from_utf8_unchecked(s.clone()) });
                  Object::parse_bytes(s.as_ref())
              })
     }
@@ -292,11 +291,7 @@ mod tests {
         let git = GitFS::new(&path).unwrap();
         let commit = git.get_object_ref(get_test_commit()).unwrap();
         let parse_str = format!("{}", commit);
-        println!("++ Commit 1++++++++++++++++++++++++++");
-        println!("{}", commit);
         let commit2 = Object::parse_bytes(parse_str.as_bytes()).unwrap();
-        println!("++ Commit 2++++++++++++++++++++++++++");
-        println!("{}", commit2);
         assert_eq!(commit, commit2);
     }
 
@@ -311,8 +306,6 @@ mod tests {
                    Object::Commit(c) => c,
                    _ => panic!("This is not a tree...")
                }).expect("expected to read a commit object");
-        println!("++ Commit ++++++++++++++++++++++++++");
-        println!("{}", commit);
 
         let tree = git.get_object(&commit.tree_ref)
                       .expect("expected to read a Tree object");
