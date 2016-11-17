@@ -1,6 +1,8 @@
 language: rust
 rust:
   - nightly
+before_install:
+  - sudo pip install ghp-import
 before_script:
   - pushd test_ref && ./init.sh && popd
 after_success:
