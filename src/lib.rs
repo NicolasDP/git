@@ -220,17 +220,18 @@ impl Repo for GitFS {
 mod tests {
     use super::*;
     use std::path::*;
-    use std::str::FromStr;
 
     fn get_test_commit() -> Ref<SHA1> {
-        let commit_ref_hex = "5a307bb41b6e45a057469a3fe99097232b697a8a";
-        let commit_ref = HashRef::from_str(commit_ref_hex).unwrap();
-        Ref::hash(&commit_ref)
+        Ref::Link(SpecRef::branch("master"))
+    }
+
+    fn get_root_test() -> PathBuf {
+        PathBuf::new().join(".").join("test_ref").join(".git")
     }
 
     #[test]
     fn new() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         assert_eq!(GitFS::new(&path), Ok(GitFS { path: path.clone()}))
     }
     #[test]
@@ -242,7 +243,7 @@ mod tests {
 
     #[test]
     fn git_fs_get_description() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         let desc = git.get_description();
         assert!(desc.is_ok())
@@ -250,20 +251,20 @@ mod tests {
 
     #[test]
     fn git_fs_get_ref() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         let r = SpecRef::branch("master");
         assert!(git.get_ref(r).is_ok())
     }
     #[test]
     fn git_fs_get_ref_follow_link() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         assert!(git.get_ref_follow_links(SpecRef::Head).is_ok())
     }
     #[test]
     fn git_fs_get_head() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         assert_eq!( git.get_head()
                   , Ok(Ref::Link(SpecRef::branch("master")))
@@ -271,23 +272,23 @@ mod tests {
     }
     #[test]
     fn git_fs_get_branches() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
-        let branches = git.list_branches().unwrap();
+        let branches = git.list_branches().expect("expect to list the branches");
         assert!(branches.contains(&SpecRef::branch("master")));
     }
     #[test]
     fn git_fs_get_remotes() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
-        let branches = git.list_remotes().unwrap();
+        let branches = git.list_remotes().expect("expect to list the remotes");
         println!("{:?}", branches);
         assert!( branches.contains(&SpecRef::remote("origin", "HEAD"))
                  || branches.contains(&SpecRef::remote("origin", "master")));
     }
     #[test]
     fn git_fs_get_commit() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         let commit = git.get_object_ref(get_test_commit()).unwrap();
         let parse_str = format!("{}", commit);
@@ -297,7 +298,7 @@ mod tests {
 
     #[test]
     fn git_fs_get_tree() {
-        let path = PathBuf::new().join(".").join(".git");
+        let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         // get the head
         let commit =
