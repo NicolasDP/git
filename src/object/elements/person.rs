@@ -63,11 +63,11 @@ impl Readable for Person {
 /// # Example
 ///
 /// ```
-/// use git::object::elements::date::Date;
+/// use git::object::elements::date::*;
 /// use git::object::elements::person::{Author};
 /// use git::object::{Readable, Writable};
 ///
-/// let date = Date::new(1464729412, 60);
+/// let date = Date::new(Elapsed(1464729412), Timezone(60));
 /// let author = Author::new_str("Kevin Flynn", "kev@flynn.rs", date);
 /// let str = format!("{}", author);
 /// let author2 = Author::parse_bytes(str.as_bytes()).unwrap();
@@ -107,11 +107,11 @@ impl Readable for Author {
 /// # Example
 ///
 /// ```
-/// use git::object::elements::date::Date;
+/// use git::object::elements::date::*;
 /// use git::object::elements::person::{Committer};
 /// use git::object::{Readable, Writable};
 ///
-/// let date = Date::new(1464729412, 60);
+/// let date = Date::new(Elapsed(1464729412), Timezone(60));
 /// let committer = Committer::new_str("Kevin Flynn", "kev@flynn.rs", date);
 /// let str = format!("{}", committer);
 /// let committer2 = Committer::parse_bytes(str.as_bytes()).unwrap();
