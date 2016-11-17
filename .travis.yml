@@ -2,4 +2,9 @@ language: rust
 rust:
   - nightly
 before_script:
-  - cd test_ref && ./init.sh
+  - pushd test_ref && ./init.sh && popd
+after_success:
+  - ./.travis-gh-page.sh
+env:
+  global:
+    secure: Mbnu4n+8vJNbc/k2+h7r6bQzs3SUDKEMt10c9DrauwoZ1qRHMWKj8nnXwNsEINy+odJciiU/833RztIsgNbz++8BHNRFe2oMI/Y9+6+ibd3AH1tMUKmjxt6ZZq3z7oz9ydX6db6tE5417426XLqR8DvKybXGlN7DT8Bpsl46dvCSbyxrtK/jIGy4Rl4o53PJZhf3HFpp0lXrpBh+m6+ikXSDZE9mzYkH9wdYDkua9K0nTv1gkrdShFDzFB4PcUk2oyK1Pfg5HQBDbjEOjt79PJ2RgGGXrDjJbTiPO0Asfp4qpkuxXmOe7PijeuAC9SKufZ/f3dAQ9vSC3vjAgcp1P6oUK173RSEZ/YiDKYrA8GfNnhUirIU0LezPGEoxPeujgluieGwREwq9hQiiCz23GM8b1SQoQpMLmNYB7l0nwgiKcNVZkET+cuGRNNDRu1JagH1lUEkKhZxJJemx83Xu7dGIDR2y/Kn53yStuvvkdmx/vZ46ZjgJBikT5T94oHfc0KsLaAYkAdj1qriRhm1fLR8kVmjtKlH/vlcib1L1dkpfS8Pd05Yj0cuadYDJPeybpHb5VYjevxCFOVFKZuv4wWEwetOf4p4WpNf1WJMX445Es2C3dh9G9OhF+BuObuhAUxlxEQXkLhJZSf4/QDHUKc7YQtnV9O08JGrtnyGn0hM=
