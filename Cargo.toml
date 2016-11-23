@@ -3,11 +3,10 @@ name = "git"
 version = "0.1.0"
 authors = ["Nicolas DI PRIMA <nicolas@di-prima.fr>"]
 
-[features]
-with-bench = []
-
 [dependencies]
-rust-crypto = "^0.2"
+rust-crypto = "*"
 flate2 = "0.2.14"
-rustc-serialize= "0.3.19"
+time="*"
+chrono="*"
 nom="*"
+rustc-serialize="*"

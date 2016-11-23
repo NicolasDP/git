@@ -1,32 +1,34 @@
-#![feature(associated_consts)]
-#![feature(try_from)]
-#![feature(test)]
-extern crate test;
+/*! Git library in pure rust
+
+[![Build Status](https://travis-ci.org/NicolasDP/git.png?branch=master)](https://travis-ci.org/NicolasDP/git)
+*/
 
 #[macro_use]
 extern crate nom;
 
-extern crate flate2;
-
+/*
 use std::path::*;
 use std::fs::{File};
 use std::io::Read;
 use std::str::FromStr;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
-use flate2::read::ZlibDecoder;
+*/
 
-pub use repo::Repo;
-pub use object::*;
-pub use error::*;
-pub use refs::{Ref, SpecRef};
+//pub use repo::Repo;
+//pub use object::*;
+//pub use error::*;
+//pub use refs::{Ref, SpecRef};
 
-mod error;
-pub mod hash;
-pub mod repo;
-pub mod refs;
+//mod error;
+//pub mod hash;
+//pub mod repo;
+//pub mod refs;
+//pub mod object;
+pub mod protocol;
 pub mod object;
 
+/*
 pub use object::elements::hash::{SHA1, Property, HashRef, HasHashRef};
 
 /// default structure used to contain some information regarding the git repository
@@ -314,3 +316,4 @@ mod tests {
         println!("{}", tree.to_string())
     }
 }
+*/
