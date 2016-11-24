@@ -1,4 +1,4 @@
-use protocol::hash::Hasher;
+use protocol::hash::Hash;
 use protocol::encoder::Encoder;
 use protocol::decoder::Decoder;
 use super::blob::BlobRef;
@@ -8,20 +8,20 @@ use nom;
 /// Tree reference
 ///
 /// This is simply a wrapper on top of the given type `H` implementing
-/// `git::protocol::hash::Hasher`.
+/// `git::protocol::hash::Hash`.
 ///
-/// All the implementation is redirected to the Hasher traits
+/// All the implementation is redirected to the Hash traits
 ///
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
-pub struct TreeRef<H: Hasher>(H);
-impl<H: Hasher> TreeRef<H> {
-    /// simply create a TreeRef from a given `Hasher`, taking ownership
+pub struct TreeRef<H: Hash>(H);
+impl<H: Hash> TreeRef<H> {
+    /// simply create a TreeRef from a given `Hash`, taking ownership
     pub fn new(h: H) -> Self { TreeRef(h) }
 }
-impl<H: Hasher + fmt::Display> fmt::Display for TreeRef<H> {
+impl<H: Hash + fmt::Display> fmt::Display for TreeRef<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
-impl<H: Hasher> Hasher for TreeRef<H> {
+impl<H: Hash> Hash for TreeRef<H> {
     fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
         H::hash(data).map(|h| TreeRef(h))
     }
@@ -36,7 +36,7 @@ impl<H: Hasher> Hasher for TreeRef<H> {
     #[inline]
     fn as_bytes(&self) -> &[u8] { self.0.as_bytes() }
 }
-impl<H: Hasher> convert::AsRef<H> for TreeRef<H> {
+impl<H: Hash> convert::AsRef<H> for TreeRef<H> {
     fn as_ref(&self) -> &H { &self.0 }
 
 }
@@ -205,7 +205,7 @@ impl fmt::Display for Permissions {
 ///         This is equivalent to a file.
 ///
 #[derive(Debug, Clone)]
-pub enum TreeEnt<H: Hasher> {
+pub enum TreeEnt<H: Hash> {
     Tree(Permissions, path::PathBuf, TreeRef<H>),
     Blob(Permissions, path::PathBuf, BlobRef<H>)
     /*
@@ -214,7 +214,7 @@ pub enum TreeEnt<H: Hasher> {
     GitLink(Permissions, PathBuf, HashRef<SHA1>)
     */
 }
-impl<H: Hasher> TreeEnt<H> {
+impl<H: Hash> TreeEnt<H> {
     fn get_file_path(&self) -> &path::PathBuf {
         match self {
             &TreeEnt::Tree(_, ref pb, _) => pb,
@@ -260,7 +260,7 @@ impl<H: Hasher> TreeEnt<H> {
         }
     }
 }
-impl<H: Hasher> fmt::Display for TreeEnt<H> {
+impl<H: Hash> fmt::Display for TreeEnt<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{type_byte}{perms} {type} {hash}\t{name}"
               , type_byte = self.display_ent_type()
@@ -271,31 +271,31 @@ impl<H: Hasher> fmt::Display for TreeEnt<H> {
               )
     }
 }
-impl<H: Hasher> PartialEq for TreeEnt<H> {
+impl<H: Hash> PartialEq for TreeEnt<H> {
     fn eq(&self, rhs: &Self) -> bool { self.get_file_path() == rhs.get_file_path() }
 }
-impl<H: Hasher> Eq for TreeEnt<H> {}
-impl<H: Hasher> PartialOrd for TreeEnt<H> {
+impl<H: Hash> Eq for TreeEnt<H> {}
+impl<H: Hash> PartialOrd for TreeEnt<H> {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.get_file_path().partial_cmp(other.get_file_path())
     }
 }
-impl<H: Hasher> Ord for TreeEnt<H> {
+impl<H: Hash> Ord for TreeEnt<H> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.get_file_path().cmp(other.get_file_path())
     }
 }
-impl<H: Hasher> borrow::Borrow<path::PathBuf> for TreeEnt<H> {
+impl<H: Hash> borrow::Borrow<path::PathBuf> for TreeEnt<H> {
     fn borrow(&self) -> &path::PathBuf { self.get_file_path() }
 }
-impl<H: Hasher> Decoder for TreeEnt<H> {
+impl<H: Hash> Decoder for TreeEnt<H> {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> {
         let (i, (ty, perm, p)) = try_parse!(b, nom_parse_tree_ent_head);
         let (i, h) = try_parse!(i, H::decode_bytes);
         nom::IResult::Done(i, TreeEnt::new_from(ty, perm, p, h))
     }
 }
-impl<H: Hasher> Encoder for TreeEnt<H> {
+impl<H: Hash> Encoder for TreeEnt<H> {
     fn required_size(&self) -> usize {
         let data = format!( "{}{} {}\0"
                           , self.get_ent_type()
@@ -331,8 +331,8 @@ named!( nom_parse_tree_ent_head<(&str, Permissions, path::PathBuf)>
 
 ///
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
-pub struct Tree<H: Hasher>(collections::BTreeSet<TreeEnt<H>>);
-impl<H: Hasher> Tree<H> {
+pub struct Tree<H: Hash>(collections::BTreeSet<TreeEnt<H>>);
+impl<H: Hash> Tree<H> {
     pub fn new_with(bt: collections::BTreeSet<TreeEnt<H>>) -> Self { Tree(bt) }
     pub fn new() -> Self { Tree(collections::BTreeSet::new()) }
     pub fn iter(&self) -> collections::btree_set::Iter<TreeEnt<H>> { self.0.iter() }
@@ -369,43 +369,43 @@ impl<H: Hasher> Tree<H> {
     pub fn remove(&mut self, value: &path::PathBuf) -> bool { self.0.remove(value) }
     pub fn take(&mut self, value: &path::PathBuf) -> Option<TreeEnt<H>> { self.0.take(value) }
 }
-impl<H: Hasher> iter::FromIterator<TreeEnt<H>> for Tree<H> {
+impl<H: Hash> iter::FromIterator<TreeEnt<H>> for Tree<H> {
     fn from_iter<I: IntoIterator<Item=TreeEnt<H>>>(iter: I) -> Self {
         Tree::new_with(collections::BTreeSet::from_iter(iter))
     }
 }
-impl<H: Hasher> IntoIterator for Tree<H> {
+impl<H: Hash> IntoIterator for Tree<H> {
     type Item = TreeEnt<H>;
     type IntoIter = collections::btree_set::IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter { self.0.into_iter() }
 }
-impl<'a, H: Hasher> IntoIterator for &'a Tree<H> {
+impl<'a, H: Hash> IntoIterator for &'a Tree<H> {
     type Item = &'a TreeEnt<H>;
     type IntoIter = collections::btree_set::Iter<'a, TreeEnt<H>>;
     fn into_iter(self) -> Self::IntoIter { self.0.iter() }
 }
-impl<H: Hasher> Extend<TreeEnt<H>> for Tree<H> {
+impl<H: Hash> Extend<TreeEnt<H>> for Tree<H> {
     fn extend<Iter: IntoIterator<Item=TreeEnt<H>>>(&mut self, iter: Iter) {
         self.0.extend(iter)
     }
 }
-impl<'a, 'b, H:Hasher+Clone> ops::Sub<&'b Tree<H>> for &'a Tree<H> {
+impl<'a, 'b, H:Hash+Clone> ops::Sub<&'b Tree<H>> for &'a Tree<H> {
     type Output = Tree<H>;
     fn sub(self, rhs: &'b Tree<H>) -> Tree<H> { Tree::new_with(self.0.sub(&rhs.0)) }
 }
-impl<'a, 'b, H: Hasher+Clone> ops::BitXor<&'b Tree<H>> for &'a Tree<H> {
+impl<'a, 'b, H: Hash+Clone> ops::BitXor<&'b Tree<H>> for &'a Tree<H> {
     type Output = Tree<H>;
     fn bitxor(self, rhs: &'b Tree<H>) -> Tree<H> { Tree::new_with(self.0.bitxor(&rhs.0)) }
 }
-impl<'a, 'b, H: Hasher+Clone> ops::BitAnd<&'b Tree<H>> for &'a Tree<H> {
+impl<'a, 'b, H: Hash+Clone> ops::BitAnd<&'b Tree<H>> for &'a Tree<H> {
     type Output = Tree<H>;
     fn bitand(self, rhs: &'b Tree<H>) -> Tree<H> { Tree::new_with(self.0.bitand(&rhs.0)) }
 }
-impl<'a, 'b, H: Hasher+Clone> ops::BitOr<&'b Tree<H>> for &'a Tree<H> {
+impl<'a, 'b, H: Hash+Clone> ops::BitOr<&'b Tree<H>> for &'a Tree<H> {
     type Output = Tree<H>;
     fn bitor(self, rhs: &'b Tree<H>) -> Tree<H> { Tree::new_with(self.0.bitor(&rhs.0)) }
 }
-impl<H: Hasher> fmt::Display for Tree<H> {
+impl<H: Hash> fmt::Display for Tree<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for te in self.iter() {
             try!(write!(f, "{}\n", te));
@@ -413,10 +413,10 @@ impl<H: Hasher> fmt::Display for Tree<H> {
         Ok(())
     }
 }
-impl<H: Hasher> Decoder for Tree<H> {
+impl<H: Hash> Decoder for Tree<H> {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_tree(b) }
 }
-impl<H: Hasher> Encoder for Tree<H> {
+impl<H: Hash> Encoder for Tree<H> {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
         let head = format!("tree {}\0", self.required_size());
         let mut sz = head.len();
@@ -442,7 +442,7 @@ named!(nom_parse_tree_size<usize>
 named!(nom_parse_tree_head<usize>
       , chain!(nom_parse_tree_tag ~ r: nom_parse_tree_size ~ char!('\0'), || r)
       );
-fn nom_parse_tree<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], Tree<H>> {
+fn nom_parse_tree<H: Hash>(b: &[u8]) -> nom::IResult<&[u8], Tree<H>> {
     let (mut b, size) = try_parse!(b, nom_parse_tree_head);
     if b.len() < size {
         return nom::IResult::Incomplete(nom::Needed::Size(size - b.len()));
@@ -464,7 +464,7 @@ mod test {
     use super::*;
     use ::object::blob::BlobRef;
     use ::protocol::{test_encoder_decoder, test_decode_encode};
-    use ::protocol::hash::{SHA1, Hasher};
+    use ::protocol::hash::{SHA1, Hash};
     use std::path::PathBuf;
     use rustc_serialize::base64::FromBase64;
 

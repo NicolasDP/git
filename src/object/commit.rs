@@ -1,6 +1,6 @@
 use super::tree::TreeRef;
 use super::person::Person;
-use protocol::hash::Hasher;
+use protocol::hash::Hash;
 use protocol::encoder::Encoder;
 use protocol::decoder::Decoder;
 use std::{io, fmt, convert, ops, iter, slice, collections, str};
@@ -8,15 +8,15 @@ use nom;
 
 /// Commit reference
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
-pub struct CommitRef<H: Hasher>(H);
-impl<H: Hasher> CommitRef<H> {
+pub struct CommitRef<H: Hash>(H);
+impl<H: Hash> CommitRef<H> {
     pub fn new(h: H) -> Self { CommitRef(h) }
 }
-impl<H: Hasher + fmt::Display> fmt::Display for CommitRef<H> {
+impl<H: Hash + fmt::Display> fmt::Display for CommitRef<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
 
-impl<H: Hasher> Hasher for CommitRef<H> {
+impl<H: Hash> Hash for CommitRef<H> {
     fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
         H::hash(data).map(|h| CommitRef(h))
     }
@@ -31,46 +31,46 @@ impl<H: Hasher> Hasher for CommitRef<H> {
     #[inline]
     fn as_bytes(&self) -> &[u8] { self.0.as_bytes() }
 }
-impl<H: Hasher> convert::AsRef<H> for CommitRef<H> {
+impl<H: Hash> convert::AsRef<H> for CommitRef<H> {
     fn as_ref(&self) -> &H { &self.0 }
 }
 
 /// collection of commit parents
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Parents<H: Hasher>(Vec<CommitRef<H>>);
-impl<H: Hasher> Parents<H> {
+pub struct Parents<H: Hash>(Vec<CommitRef<H>>);
+impl<H: Hash> Parents<H> {
     pub fn new() -> Self { Self::new_with(Vec::new()) }
     pub fn new_with(v: Vec<CommitRef<H>>) -> Self { Parents(v) }
     pub fn push(&mut self, p: CommitRef<H>) { self.0.push(p) }
 }
-impl<H: Hasher> ops::Deref for Parents<H> {
+impl<H: Hash> ops::Deref for Parents<H> {
     type Target = [CommitRef<H>];
     fn deref(&self) -> &Self::Target { self.0.deref() }
 }
-impl<H: Hasher> ops::DerefMut for Parents<H> {
+impl<H: Hash> ops::DerefMut for Parents<H> {
     fn deref_mut(&mut self) -> &mut Self::Target { self.0.deref_mut() }
 }
-impl<H: Hasher> iter::FromIterator<CommitRef<H>> for Parents<H> {
+impl<H: Hash> iter::FromIterator<CommitRef<H>> for Parents<H> {
     fn from_iter<I: IntoIterator<Item=CommitRef<H>>>(iter: I) -> Self {
         Self::new_with(iter.into_iter().collect())
     }
 }
-impl<H: Hasher> iter::IntoIterator for Parents<H> {
+impl<H: Hash> iter::IntoIterator for Parents<H> {
     type Item = CommitRef<H>;
     type IntoIter = ::std::vec::IntoIter<CommitRef<H>>;
     fn into_iter(self) -> Self::IntoIter { self.0.into_iter() }
 }
-impl<'a, H: Hasher> iter::IntoIterator for &'a Parents<H> {
+impl<'a, H: Hash> iter::IntoIterator for &'a Parents<H> {
     type Item = &'a CommitRef<H>;
     type IntoIter = slice::Iter<'a, CommitRef<H>>;
     fn into_iter(self) -> Self::IntoIter { self.0.iter() }
 }
-impl<'a, H: Hasher> IntoIterator for &'a mut Parents<H> {
+impl<'a, H: Hash> IntoIterator for &'a mut Parents<H> {
     type Item = &'a mut CommitRef<H>;
     type IntoIter = slice::IterMut<'a, CommitRef<H>>;
     fn into_iter(mut self) -> Self::IntoIter { self.0.iter_mut() }
 }
-impl<H: Hasher> Encoder for Parents<H> {
+impl<H: Hash> Encoder for Parents<H> {
     fn required_size(&self) -> usize {
         let mut sz = 7;
         for _ in self.iter() {
@@ -86,7 +86,7 @@ impl<H: Hasher> Encoder for Parents<H> {
         Ok(sz)
     }
 }
-impl<H: Hasher> Decoder for Parents<H> {
+impl<H: Hash> Decoder for Parents<H> {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> {
         let mut i = b;
         let mut parents = Self::new();
@@ -99,13 +99,13 @@ impl<H: Hasher> Decoder for Parents<H> {
 }
 named!(nom_parse_newline, tag!("\n"));
 named!(nom_parse_parent_tag, tag!("parent "));
-fn nom_parse_parent<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], CommitRef<H>> {
+fn nom_parse_parent<H: Hash>(b: &[u8]) -> nom::IResult<&[u8], CommitRef<H>> {
     let (b, _) = try_parse!(b, nom_parse_parent_tag);
     let (b, cr) = try_parse!(b, CommitRef::<H>::decode_hex);
     let (b, _) = try_parse!(b, nom_parse_newline);
     nom::IResult::Done(b, cr)
 }
-fn encode_parent<H: Hasher, W: io::Write>(commit: &CommitRef<H>, writer: &mut W) -> io::Result<usize> {
+fn encode_parent<H: Hash, W: io::Write>(commit: &CommitRef<H>, writer: &mut W) -> io::Result<usize> {
     try!(writer.write_all(b"parent "));
     let s = try!(commit.encode_hex(writer));
     try!(writer.write_all(b"\n"));
@@ -246,7 +246,7 @@ impl fmt::Display for Extras {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Commit<H: Hasher> {
+pub struct Commit<H: Hash> {
     pub tree_ref: TreeRef<H>,
     pub parents: Parents<H>,
     pub author: Person,
@@ -255,7 +255,7 @@ pub struct Commit<H: Hasher> {
     pub extras: Extras,
     pub message: String
 }
-impl<H: Hasher> fmt::Display for Commit<H> {
+impl<H: Hash> fmt::Display for Commit<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(write!( f, "tree {}\n", self.tree_ref.to_hexadecimal()));
         for p in self.parents.iter() {
@@ -268,7 +268,7 @@ impl<H: Hasher> fmt::Display for Commit<H> {
         write!(f, "{}{}", self.extras, self.message)
     }
 }
-impl<H: Hasher> Decoder for Commit<H> {
+impl<H: Hash> Decoder for Commit<H> {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> {
         nom_parse_commit(b)
     }
@@ -280,7 +280,7 @@ named!(nom_parse_commit_size<usize>
 named!(nom_parse_commit_head<usize>
       , chain!(nom_parse_commit_tag ~ r: nom_parse_commit_size ~ char!('\0'), || r)
       );
-fn nom_parse_commit<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], Commit<H>> {
+fn nom_parse_commit<H: Hash>(b: &[u8]) -> nom::IResult<&[u8], Commit<H>> {
     let (b, _) = try_parse!(b, nom_parse_commit_head);
     let (b, _) = try_parse!(b, tag!("tree "));
     let (b, tr) = try_parse!(b, H::decode_hex);
@@ -307,7 +307,7 @@ fn nom_parse_commit<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], Commit<H>> {
         }
     )
 }
-impl<H: Hasher> Encoder for Commit<H> {
+impl<H: Hash> Encoder for Commit<H> {
     fn required_size(&self) -> usize {
         0 + H::digest_hex_size() + 6
           + self.parents.required_size()

@@ -12,7 +12,7 @@ the hashing mechanism later on.
 # Example
 
 ```
-use git::protocol::hash::{SHA1, Hasher};
+use git::protocol::hash::{SHA1, Hash};
 
 let data = "hello world";
 let hash = SHA1::hash(&mut data.as_bytes()).unwrap();
@@ -31,11 +31,11 @@ use self::rustc_serialize::hex::{FromHex, ToHex};
 use std::io::{Result, BufRead};
 use std::{str, io, fmt};
 
-/// Hasher Protocol
+/// Hash Protocol
 ///
 /// simple interface to hash different stream
 ///
-pub trait Hasher : Sized {
+pub trait Hash : Sized {
     /// function to hash a stream
     fn hash<R: BufRead>(data: &mut R) -> Result<Self>;
 
@@ -75,7 +75,7 @@ pub trait Hasher : Sized {
 /// Hash SHA1.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct SHA1(Vec<u8>);
-impl Hasher for SHA1 {
+impl Hash for SHA1 {
     #[inline]
     fn from_bytes(b: Vec<u8>) -> Option<Self> {
         if b.len() == Self::digest_size() {
@@ -109,7 +109,7 @@ impl fmt::Display for SHA1 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.to_hexadecimal()) }
 }
 
-fn decode_bytes_<H: Hasher>(i: &[u8]) -> nom::IResult<&[u8], H> {
+fn decode_bytes_<H: Hash>(i: &[u8]) -> nom::IResult<&[u8], H> {
     let size = H::digest_size();
     let input = &i[..size];
     let output = match H::from_bytes(input.iter().cloned().collect()) {
@@ -123,13 +123,13 @@ fn decode_bytes_<H: Hasher>(i: &[u8]) -> nom::IResult<&[u8], H> {
     nom::IResult::Done(remain, output)
 }
 fn encode_bytes_<H, W>(hash: &H, writer: &mut W) -> io::Result<usize>
-  where H: Hasher
+  where H: Hash
       , W: io::Write
 {
     writer.write_all(hash.as_bytes()).map(|()| H::digest_size())
 }
 
-fn decode_hex_<H: Hasher>(i: &[u8]) -> nom::IResult<&[u8], H> {
+fn decode_hex_<H: Hash>(i: &[u8]) -> nom::IResult<&[u8], H> {
     let (i, bytes) = match nom_parse_hex(i) {
         nom::IResult::Done(i, b) => (i, b),
         nom::IResult::Error(err) => return nom::IResult::Error(err),
@@ -148,7 +148,7 @@ fn decode_hex_<H: Hasher>(i: &[u8]) -> nom::IResult<&[u8], H> {
 }
 named!(nom_parse_hex, take_while1!(nom::is_hex_digit));
 pub fn encode_hex_<H, W>(hash: &H, writer: &mut W) -> io::Result<usize>
-  where H: Hasher
+  where H: Hash
       , W: io::Write
 {
     writer.write_all(hash.to_hexadecimal().as_bytes()).map(|()| H::digest_size())
@@ -181,8 +181,8 @@ mod test {
     }
 
     #[derive(PartialEq, Eq, Debug)]
-    struct Bytes<H: Hasher>(H);
-    impl<H: Hasher> Hasher for Bytes<H> {
+    struct Bytes<H: Hash>(H);
+    impl<H: Hash> Hash for Bytes<H> {
         fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
             H::hash(data).map(|h| Bytes(h))
         }
@@ -192,13 +192,13 @@ mod test {
         fn digest_size() -> usize { H::digest_size() }
         fn as_bytes(&self) -> &[u8] { self.0.as_bytes() }
     }
-    impl<H: Hasher> Encoder for Bytes<H> {
+    impl<H: Hash> Encoder for Bytes<H> {
         fn required_size(&self) -> usize { H::digest_size() }
         fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
             self.encode_bytes(w)
         }
     }
-    impl<H: Hasher> Decoder for Bytes<H> {
+    impl<H: Hash> Decoder for Bytes<H> {
         fn decode(i: &[u8]) -> nom::IResult<&[u8], Self> {
             Self::decode_bytes(i)
         }
@@ -206,8 +206,8 @@ mod test {
 
 
     #[derive(PartialEq, Eq, Debug)]
-    struct Hex<H: Hasher>(H);
-    impl<H: Hasher> Hasher for Hex<H> {
+    struct Hex<H: Hash>(H);
+    impl<H: Hash> Hash for Hex<H> {
         fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
             H::hash(data).map(|h| Hex(h))
         }
@@ -217,13 +217,13 @@ mod test {
         fn digest_size() -> usize { H::digest_size() }
         fn as_bytes(&self) -> &[u8] { self.0.as_bytes() }
     }
-    impl<H: Hasher> Encoder for Hex<H> {
+    impl<H: Hash> Encoder for Hex<H> {
         fn required_size(&self) -> usize { H::digest_hex_size() }
         fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
             self.encode_hex(w)
         }
     }
-    impl<H: Hasher> Decoder for Hex<H> {
+    impl<H: Hash> Decoder for Hex<H> {
         fn decode(i: &[u8]) -> nom::IResult<&[u8], Self> {
             Self::decode_hex(i)
         }

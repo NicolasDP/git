@@ -1,4 +1,4 @@
-use protocol::hash::Hasher;
+use protocol::hash::Hash;
 use protocol::encoder::Encoder;
 use protocol::decoder::Decoder;
 use std::{io, fmt, str, convert};
@@ -6,15 +6,15 @@ use nom;
 
 /// Blob reference
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
-pub struct BlobRef<H: Hasher>(H);
-impl<H: Hasher> BlobRef<H> {
+pub struct BlobRef<H: Hash>(H);
+impl<H: Hash> BlobRef<H> {
     pub fn new(h: H) -> Self { BlobRef(h) }
 }
-impl<H: Hasher + fmt::Display> fmt::Display for BlobRef<H> {
+impl<H: Hash + fmt::Display> fmt::Display for BlobRef<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
 
-impl<H: Hasher> Hasher for BlobRef<H> {
+impl<H: Hash> Hash for BlobRef<H> {
     fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
         H::hash(data).map(|h| BlobRef(h))
     }
@@ -29,7 +29,7 @@ impl<H: Hasher> Hasher for BlobRef<H> {
     #[inline]
     fn as_bytes(&self) -> &[u8] { self.0.as_bytes() }
 }
-impl<H: Hasher> convert::AsRef<H> for BlobRef<H> {
+impl<H: Hash> convert::AsRef<H> for BlobRef<H> {
     fn as_ref(&self) -> &H { &self.0 }
 }
 
@@ -39,7 +39,7 @@ pub struct Blob(Vec<u8>);
 impl Blob {
     pub fn new(data: Vec<u8>) -> Self { Blob(data) }
 
-    pub fn hash<H: Hasher>(&self) -> H {
+    pub fn hash<H: Hash>(&self) -> H {
         H::hash(&mut self.0.as_slice()).unwrap()
     }
 }
