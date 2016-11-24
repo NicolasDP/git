@@ -57,6 +57,7 @@ impl Decoder for Blob {
     }
 }
 impl Encoder for Blob {
+    fn required_size(&self) -> usize { self.0.len() }
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
         let header = format!("blob {}\0", self.0.len());
         try!(writer.write_all(header.as_bytes()));

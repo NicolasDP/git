@@ -193,6 +193,7 @@ mod test {
         fn as_bytes(&self) -> &[u8] { self.0.as_bytes() }
     }
     impl<H: Hasher> Encoder for Bytes<H> {
+        fn required_size(&self) -> usize { H::digest_size() }
         fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
             self.encode_bytes(w)
         }
@@ -217,6 +218,7 @@ mod test {
         fn as_bytes(&self) -> &[u8] { self.0.as_bytes() }
     }
     impl<H: Hasher> Encoder for Hex<H> {
+        fn required_size(&self) -> usize { H::digest_hex_size() }
         fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
             self.encode_hex(w)
         }

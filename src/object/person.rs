@@ -26,16 +26,23 @@ impl Person {
             date: date
         }
     }
+
+    fn encode_name_email(&self) -> String {
+        format!("{} <{}> ", self.name, self.email).to_string()
+    }
 }
 impl Decoder for Person {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_person(b) }
 }
 impl Encoder for Person {
+    fn required_size(&self) -> usize {
+        self.encode_name_email().len() + self.date.required_size()
+    }
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
-        let hex = format!("{} <{}> ", self.name, self.email).to_string();
-        try!(writer.write_all(hex.as_bytes()));
+        let ne = self.encode_name_email();
+        try!(writer.write_all(ne.as_bytes()));
         let d_len = try!(self.date.encode(writer));
-        Ok(hex.len() + d_len)
+        Ok(ne.len() + d_len)
     }
 }
 

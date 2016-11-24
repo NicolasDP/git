@@ -137,6 +137,10 @@ named!( nom_parse_permission_set<PermissionSet>
 /// * group: the set of `Permission` applies to the group;
 /// * other: the set of `Permission` applies to the other.
 ///
+/// # TODO
+///
+/// * from_str: being able to recognize octal strings ("0777", "0644")
+///
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Permissions {
     // TODO: do we need to set the extras 3 bits as well?
@@ -152,6 +156,25 @@ impl Permissions {
             user: PermissionSet::new(),
             group: PermissionSet::new(),
             other: PermissionSet::new()
+        }
+    }
+
+    /// create default set of permissions for a directory
+    pub fn default_dir() -> Self { Self::new() }
+    /// create default set of permissions for a file
+    pub fn default_file() -> Self {
+        Permissions {
+            user:  PermissionSet::new_from_byte(b'6'),
+            group: PermissionSet::new_from_byte(b'4'),
+            other: PermissionSet::new_from_byte(b'4')
+        }
+    }
+    /// create default set of permissions for an executable
+    pub fn default_exe() -> Self {
+        Permissions {
+            user:  PermissionSet::new_from_byte(b'7'),
+            group: PermissionSet::new_from_byte(b'5'),
+            other: PermissionSet::new_from_byte(b'5')
         }
     }
 }
@@ -275,6 +298,14 @@ impl<H: Hasher> Decoder for TreeEnt<H> {
     }
 }
 impl<H: Hasher> Encoder for TreeEnt<H> {
+    fn required_size(&self) -> usize {
+        let data = format!( "{} {} {:?}\0"
+                          , self.get_ent_type()
+                          , self.get_premission()
+                          , self.get_file_path()
+                          );
+        data.len() + H::digest_size()
+    }
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
         let data = format!( "{} {} {:?}\0"
                           , self.get_ent_type()
@@ -379,6 +410,25 @@ impl<'a, 'b, H: Hasher+Clone> ops::BitOr<&'b Tree<H>> for &'a Tree<H> {
 impl<H: Hasher> Decoder for Tree<H> {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_tree(b) }
 }
+impl<H: Hasher> Encoder for Tree<H> {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
+        let head = format!("tree {}\0", self.required_size());
+        let mut sz = head.len();
+        try!(writer.write_all(head.as_bytes()));
+        for te in self.iter() {
+            sz += try!(te.encode(writer)) + 1;
+            try!(writer.write_all(b"\n"));
+        }
+        Ok(sz)
+    }
+    fn required_size(&self) -> usize {
+        let mut sz = 0;
+        for te in self.iter() {
+            sz += te.required_size() + 1;
+        }
+        sz
+    }
+}
 
 named!(nom_parse_tree_tag, tag!("tree "));
 named!(nom_parse_tree_size<usize>
@@ -388,11 +438,7 @@ named!(nom_parse_tree_head<usize>
       , chain!(nom_parse_tree_tag ~ r: nom_parse_tree_size ~ char!('\0'), || r)
       );
 fn nom_parse_tree<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], Tree<H>> {
-    let (mut b, size) = match nom_parse_tree_head(b) {
-        nom::IResult::Done(b, o) => (b, o),
-        nom::IResult::Error(err) => return nom::IResult::Error(err),
-        nom::IResult::Incomplete(n) => return nom::IResult::Incomplete(n)
-    };
+    let (mut b, size) = try_parse!(b, nom_parse_tree_head);
     if b.len() < size {
         return nom::IResult::Incomplete(nom::Needed::Size(size - b.len()));
     }
@@ -410,7 +456,27 @@ fn nom_parse_tree<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], Tree<H>> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use ::object::blob::BlobRef;
+    use ::protocol::test_encoder_decoder;
+    use ::protocol::hash::{SHA1, Hasher};
+    use std::path::PathBuf;
+
     #[test]
-    fn tree_serialisable() {
+    fn tree_serialisable_empty() {
+        let tree : Tree<SHA1> = Tree::new();
+        test_encoder_decoder(tree);
+    }
+    #[test]
+    fn tree_serialisable_one() {
+        let mut tree : Tree<SHA1> = Tree::new();
+        let data = b"# hello\n";
+        let tree_ent = TreeEnt::Blob(
+            Permissions::default_file(),
+            PathBuf::new().join("README.md"),
+            BlobRef::new(SHA1::hash(&mut &data[..]).unwrap())
+        );
+        tree.insert(tree_ent);
+        test_encoder_decoder(tree);
     }
 }

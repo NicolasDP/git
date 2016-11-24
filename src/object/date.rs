@@ -49,8 +49,9 @@ impl Decoder for Date {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> { nom_parse_date(b) }
 }
 impl Encoder for Date {
+    fn required_size(&self) -> usize { self.encode_for_obj().len() }
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
-        let hex = self.0.format("%s %z").to_string();
+        let hex = self.encode_for_obj();
         try!(writer.write_all(hex.as_bytes()));
         Ok(hex.len())
     }

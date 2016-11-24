@@ -71,6 +71,13 @@ impl<'a, H: Hasher> IntoIterator for &'a mut Parents<H> {
     fn into_iter(mut self) -> Self::IntoIter { self.0.iter_mut() }
 }
 impl<H: Hasher> Encoder for Parents<H> {
+    fn required_size(&self) -> usize {
+        let mut sz = 7;
+        for _ in self.iter() {
+            sz += H::digest_hex_size() + 1;
+        }
+        sz
+    }
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
         let mut sz = 0;
         for p in self.iter() {
