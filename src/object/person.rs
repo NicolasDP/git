@@ -2,7 +2,7 @@ use super::date::Date;
 use protocol::decoder::*;
 use protocol::encoder::*;
 use nom;
-use std::{str, io};
+use std::{str, io, fmt};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Person {
@@ -29,6 +29,11 @@ impl Person {
 
     fn encode_name_email(&self) -> String {
         format!("{} <{}> ", self.name, self.email).to_string()
+    }
+}
+impl fmt::Display for Person {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} <{}> {}", self.name, self.email, self.date.encode_for_obj())
     }
 }
 impl Decoder for Person {

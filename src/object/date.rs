@@ -90,8 +90,8 @@ named!( nom_parse_timezone<FixedOffset>
               , || {
                   let h = tz_fmt / 100;
                   let m = tz_fmt % 100;
-                  if tz_sign { FixedOffset::west(h * 60 + m) }
-                  else { FixedOffset::east(h * 60 + m) }
+                  if tz_sign { FixedOffset::east(h * 3600 + m * 60) }
+                  else { FixedOffset::west(h * 3600 + m * 60) }
               })
       );
 named!( nom_parse_date_time<NaiveDateTime>

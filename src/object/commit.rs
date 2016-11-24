@@ -94,30 +94,52 @@ impl<H: Hasher> Decoder for Parents<H> {
             i = b;
             parents.push(parent);
         };
-        nom::IResult::Done(b, parents)
+        nom::IResult::Done(i, parents)
     }
 }
 named!(nom_parse_newline, tag!("\n"));
 named!(nom_parse_parent_tag, tag!("parent "));
 fn nom_parse_parent<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], CommitRef<H>> {
-    let b = match nom_parse_parent_tag(b) {
-        nom::IResult::Done(b, _) => b,
-        nom::IResult::Error(err) => return nom::IResult::Error(err),
-        nom::IResult::Incomplete(n) => return nom::IResult::Incomplete(n)
-    };
-    let (b, cr) = match CommitRef::<H>::decode_hex(b) {
-        nom::IResult::Done(b, cr) => (b, cr),
-        nom::IResult::Error(err) => return nom::IResult::Error(err),
-        nom::IResult::Incomplete(n) => return nom::IResult::Incomplete(n)
-    };
-    nom_parse_newline(b).map(|_| cr)
+    let (b, _) = try_parse!(b, nom_parse_parent_tag);
+    let (b, cr) = try_parse!(b, CommitRef::<H>::decode_hex);
+    let (b, _) = try_parse!(b, nom_parse_newline);
+    nom::IResult::Done(b, cr)
 }
 fn encode_parent<H: Hasher, W: io::Write>(commit: &CommitRef<H>, writer: &mut W) -> io::Result<usize> {
-    try!(writer.write_all("parent ".as_bytes()));
+    try!(writer.write_all(b"parent "));
     let s = try!(commit.encode_hex(writer));
-    try!(writer.write_all("\n".as_bytes()));
+    try!(writer.write_all(b"\n"));
     Ok(s + 8)
 }
+
+/// Git commit message encoding information
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Encoding {
+    raw : String
+}
+impl Encoding {
+    pub fn new(raw: String) -> Self { Encoding { raw: raw } }
+    pub fn new_str<'a>(raw: &'a str) -> Self { Encoding { raw: raw.to_string() } }
+}
+impl Encoder for Encoding {
+    fn required_size(&self) -> usize { self.raw.len() + 9 }
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
+        let data = format!( "{}", self);
+        try!(writer.write_all(data.as_bytes()));
+        Ok(data.len())
+    }
+}
+impl fmt::Display for Encoding {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "encoding {}", self.raw)
+    }
+}
+named!( nom_parse_encoding<Encoding>
+      , chain!( tag!("encoding ")
+              ~ e: map_res!(take_while1!(is_valid_encoding_char), str::from_utf8)
+              , || Encoding::new_str(e)
+              )
+      );
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Extras(collections::BTreeMap<String, String>);
@@ -185,6 +207,43 @@ named!( nom_parse_extras<Extras>
               , || Extras::new_with(acc)
               )
       );
+impl Encoder for Extras {
+    fn required_size(&self) -> usize {
+        let mut sum : usize = 0;
+        for (key, value) in self.0.iter() {
+            sum += key.len() + 1;
+            for line in value.lines() {
+                sum += 1 + line.len() + 1;
+            }
+        }
+        sum
+    }
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
+        let mut sz = 0;
+        for (key, value) in self.0.iter() {
+            let kd = format!("{}\n", key);
+            try!(writer.write_all(kd.as_bytes()));
+            sz += kd.len();
+            for line in value.lines() {
+                let kv = format!(" {}\n", line);
+                try!(writer.write_all(kv.as_bytes()));
+                sz += kv.len();
+            }
+        }
+        Ok(sz)
+    }
+}
+impl fmt::Display for Extras {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (key, value) in self.0.iter() {
+            try!(write!(f, "{}\n", key));
+            for line in value.lines() {
+                try!(write!(f, " {}\n", line));
+            }
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Commit<H: Hasher> {
@@ -192,8 +251,22 @@ pub struct Commit<H: Hasher> {
     pub parents: Parents<H>,
     pub author: Person,
     pub committer: Person,
+    pub encoding: Option<Encoding>,
     pub extras: Extras,
     pub message: String
+}
+impl<H: Hasher> fmt::Display for Commit<H> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!( f, "tree {}\n", self.tree_ref.to_hexadecimal()));
+        for p in self.parents.iter() {
+            try!(write!(f, "parent {}\n", p.to_hexadecimal()));
+        }
+        try!(write!(f, "author {}\ncommitter {}\n", self.author, self.committer));
+        if let &Some(ref e) = &self.encoding {
+            try!(write!(f, "encoding {}\n", e.raw));
+        }
+        write!(f, "{}{}", self.extras, self.message)
+    }
 }
 impl<H: Hasher> Decoder for Commit<H> {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> {
@@ -219,6 +292,7 @@ fn nom_parse_commit<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], Commit<H>> {
     let (b, _) = try_parse!(b, tag!("committer "));
     let (b, c) = try_parse!(b, Person::decode);
     let (b, _) = try_parse!(b, tag!("\n"));
+    let (b, en) = try_parse!(b, opt!(chain!(e: nom_parse_encoding ~ char!('\n'), || e)));
     let (b, e) = try_parse!(b, nom_parse_extras);
     let (b, m) = try_parse!(b, map_res!(nom::rest, str::from_utf8));
     nom::IResult::Done(
@@ -228,9 +302,28 @@ fn nom_parse_commit<H: Hasher>(b: &[u8]) -> nom::IResult<&[u8], Commit<H>> {
             parents: parents,
             author: a, committer: c,
             extras: e,
+            encoding: en,
             message: m.to_string()
         }
     )
+}
+impl<H: Hasher> Encoder for Commit<H> {
+    fn required_size(&self) -> usize {
+        0 + H::digest_hex_size() + 6
+          + self.parents.required_size()
+          + self.author.required_size() + 1
+          + self.committer.required_size() + 1
+          + match &self.encoding { &Some(ref e) => e.required_size() + 1, &None => 0 }
+          + self.extras.required_size()
+          + self.message.len()
+    }
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<usize> {
+        let data = format!("{}", self);
+        let head = format!("commit {}\0", data.len());
+        try!(writer.write_all(head.as_bytes()));
+        try!(writer.write_all(data.as_bytes()));
+        Ok(head.len() + data.len())
+    }
 }
 
 // -- --------------------------------------------------------------------- --
@@ -243,17 +336,15 @@ mod test {
     //! things don't break under our feet without knowing it.
 
     use super::*;
-    use ::protocol::test_encoder_decoder;
+    use ::protocol::test_decode_encode;
+    use rustc_serialize::base64::FromBase64;
     use ::protocol::hash::SHA1;
 
-/*
+    const SMOCK_TEST : &'static str = r"Y29tbWl0IDI0MgB0cmVlIDJlZjk1OTE2MzU2NmYyOWI0YTVhY2I4Y2JlMjE3YzhiMDM2NzQ3YmMKcGFyZW50IDFmYTY4MTFjZjIyYTRjYmVmNWJiMjhlNjhmZTI4ZDcyOGNmMmY2NGQKYXV0aG9yIE5pY29sYXMgRGkgUHJpbWEgPG5pY29sYXNAZGktcHJpbWEuZnI+IDE0ODAwMDc4MzIgKzAxMDAKY29tbWl0dGVyIE5pY29sYXMgRGkgUHJpbWEgPG5pY29sYXNAZGktcHJpbWEuZnI+IDE0ODAwMDc4MzIgKzAxMDAKCmFkZCB0cmVlIGVuY29kaW5nCg==";
+
     #[test]
-    fn encode_decode_commit_ref() {
-        let sha1_hex = "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed";
-        let sha1 = SHA1::from_str(sha1_hex)
-                        .expect("expecting a valid SHA1 encoded in hexadecimal");
-        let tr = CommitRef::new(sha1);
-        test_encoder_decoder(tr);
+    fn regression_test() {
+        let data = SMOCK_TEST.from_base64().unwrap();
+        test_decode_encode::<Commit<SHA1>>(data);
     }
-    */
 }
