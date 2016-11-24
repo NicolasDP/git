@@ -114,9 +114,6 @@ named!( nom_parse_date<&[u8], Date>
 
 #[cfg(test)]
 mod test {
-    //! contract test. It's more to detect changes and make sure
-    //! things don't break under our feet without knowing it.
-
     use super::*;
     use ::protocol::test_encoder_decoder;
 

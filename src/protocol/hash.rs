@@ -21,8 +21,6 @@ assert_eq!(hash.to_hexadecimal(), "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
 
 !*/
 
-use super::decoder::*;
-use super::encoder::*;
 use nom;
 
 extern crate crypto;
@@ -31,7 +29,7 @@ use self::crypto::sha1::Sha1;
 extern crate rustc_serialize;
 use self::rustc_serialize::hex::{FromHex, ToHex};
 use std::io::{Result, BufRead};
-use std::{str, io};
+use std::{str, io, fmt};
 
 /// Hasher Protocol
 ///
@@ -106,6 +104,9 @@ impl Hasher for SHA1 {
 
     #[inline]
     fn as_bytes(&self) -> &[u8] { self.0.as_slice() }
+}
+impl fmt::Display for SHA1 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.to_hexadecimal()) }
 }
 
 fn decode_bytes_<H: Hasher>(i: &[u8]) -> nom::IResult<&[u8], H> {

@@ -25,7 +25,11 @@ pub fn test_encoder_decoder<T: Encoder+Decoder+Eq+Debug>(t: T) {
           println!("buffer: {:?}", String::from_utf8(v.clone()).unwrap());
           Err(err).expect("decoding from buffer")
       },
-      Incomplete(needed) => panic!()
+      Incomplete(needed) => {
+          println!("decoding: {:?}", t);
+          println!("buffer: {:?}", String::from_utf8(v.clone()).unwrap());
+          panic!(format!("not enough data: needed({:?})", needed));
+      }
   };
   assert_eq!(t, t_);
   assert!(v_.is_empty());

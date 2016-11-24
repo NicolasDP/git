@@ -547,7 +547,7 @@ named!( nom_parse_tree_ent<TreeEnt>
               ~ perm: call!(Permissions::nom_parse)
               ~ tag!(" ")
               ~ path: nom_parse_path
-              ~ hash: take!(<hash::SHA1 as hash::Property>::digest_size())
+              ~ hash: call!(H::decode_bytes)
               , || TreeEnt::new_from(t, perm, path, hash)
               )
       );
