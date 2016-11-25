@@ -47,6 +47,13 @@ impl fmt::Display for Date {
 
 impl Date {
     /// create a new date set to know and the system local timezone
+    ///
+    /// ```
+    /// use git::object::date::Date;
+    ///
+    /// let now = Date::now();
+    /// println!("Today is: {}", now);
+    /// ```
     pub fn now() -> Self { Date::new(Local::now()) }
 
     /// create a new date from the given `DateTime`
@@ -57,17 +64,27 @@ impl Date {
         Date(DateTime::from_utc(ndt, dt.offset().clone()))
     }
 
-    /// create a new date from EPOCH with the given local timezone
-    fn from_epoch(dt: NaiveDateTime, fo: FixedOffset) -> Self {
-        Date::new(DateTime::from_utc(dt, fo))
-    }
-
     /// create custom time from seconds since epoch (using local timezone)
+    ///
+    /// ```
+    /// use git::object::date::Date;
+    ///
+    /// let date = Date::seconds_since_epoch(1479973175);
+    /// println!("that day: {}", date);
+    /// ```
     pub fn seconds_since_epoch(seconds: i64) -> Self {
         Date(Local.timestamp(seconds,0))
     }
 
     /// Convenient function to make up date from human logic
+    ///
+    /// ```
+    /// use git::object::date::Date;
+    ///
+    /// let date = Date::ymd_hms(2013, 1, 29, 15, 34, 11)
+    ///            .expect("to have a valid date and time");
+    /// println!("that day: {}", date);
+    /// ```
     pub fn ymd_hms( year: i32
                   , month: u32
                   , day: u32
@@ -82,8 +99,23 @@ impl Date {
             .map(|dt| Date::new(dt))
     }
 
-    /// encode in a object
+    /// encode in a string for the git object format
+    ///
+    /// i.e.: Seconds since EPOCH followed by timezone (`+/-HHMM`).
+    ///
+    /// ```
+    /// use git::object::date::Date;
+    ///
+    /// let date = Date::ymd_hms(2016, 11, 24, 7, 39, 35)
+    ///            .expect("to have a valid date and time");
+    /// assert_eq!(r"1479973175 +0000", date.encode_for_obj())
+    /// ```
     pub fn encode_for_obj(&self) -> String { self.0.format("%s %z").to_string() }
+
+    /// create a new date with the given local timezone
+    fn from(dt: NaiveDateTime, fo: FixedOffset) -> Self {
+        Date::new(DateTime::from_utc(dt, fo))
+    }
 }
 
 impl Decoder for Date {
@@ -146,7 +178,7 @@ named!( nom_parse_date<&[u8], Date>
               ~ tag!(" ")
               ~ tz: nom_parse_timezone
               , || {
-                  Date::from_epoch(time, tz)
+                  Date::from(time, tz)
               })
       );
 
