@@ -1,17 +1,82 @@
+/*! Git's Person (author and committer)
+
+Base type for committer and author (embedding a date along):
+
+* a full name;
+* an email address;
+* a date (the date associated to when the person did something on the current object).
+
+# Enhancement
+
+## Date and Person
+
+Semantically, it does not make sense to define a `Person`
+with its actions logged along. A Person's is not defined
+by when it actually did something.
+However, in the context of git, a `Committer` and an `Author`
+will have the same data and will be tagged along a date.
+
+## Data Validation
+
+There is not validation of the username or the email address.
+This is customer's responsabilities to store valide data (or not).
+
+# Example
+
+```
+use git::object::person::Person;
+
+let me_now = Person::now( "Nicolas".to_string()
+                        , "my@email.address".to_string()
+                        );
+println!("Hello! Right now, I am: {}", me_now);
+```
+
+!*/
+
 use super::date::Date;
 use protocol::decoder::*;
 use protocol::encoder::*;
 use nom;
 use std::{str, io, fmt};
 
+/// Git's Person data type
+///
+/// In git, a person will be the following:
+///
+/// * a full name;
+/// * an email address;
+/// * a date (the date associated to when the person did something on the current object).
+///
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Person {
-    pub name:  String,
-    pub email: String,
-    pub date:  Date
+    name:  String,
+    email: String,
+    date:  Date
 }
 
 impl Person {
+    /// convenient function to create a `Person` with the current Date
+    ///
+    /// ```
+    /// use git::object::person::Person;
+    ///
+    /// let me_now = Person::now("nicolas".to_string(), "my@email.address".to_string());
+    /// println!("{}", me_now);
+    /// ```
+    pub fn now(name: String, email: String) -> Self {
+        Person::new(name, email, Date::now())
+    }
+    /// create a new `Person`
+    ///
+    /// ```
+    /// use git::object::person::Person;
+    /// use git::object::date::Date;
+    ///
+    /// let now = Date::now();
+    /// let me_now = Person::new("nicolas".to_string(), "my@email.address".to_string(), now);
+    /// println!("{}", me_now);
+    /// ```
     pub fn new(name: String, email: String, date: Date) -> Self {
         Person {
             name: name,
@@ -19,14 +84,50 @@ impl Person {
             date: date
         }
     }
-    pub fn new_str(name: &str, email: &str, date: Date) -> Self {
-        Person {
-            name: name.to_string(),
-            email: email.to_string(),
-            date: date
-        }
-    }
 
+    /// access the `Person`'s name
+    ///
+    /// ```
+    /// use git::object::person::Person;
+    ///
+    /// let name = r"nicolas";
+    /// let email = "my@email.address".to_string();
+    /// let me_now = Person::now(name.to_string(), email);
+    /// assert_eq!(name, me_now.name());
+    /// ```
+    pub fn name(&self) -> &str { self.name.as_str() }
+
+    /// access the `Person`'s email address
+    ///
+    /// ```
+    /// use git::object::person::Person;
+    ///
+    /// let name = "nicolas".to_string();
+    /// let email = r"my@email.address";
+    /// let me_now = Person::now(name, email.to_string());
+    /// assert_eq!(email, me_now.email());
+    /// ```
+    pub fn email(&self) -> &str { self.email.as_str() }
+
+    /// access the `Person`'s date
+    ///
+    /// ```
+    /// use git::object::person::Person;
+    /// use git::object::date::Date;
+    ///
+    /// let name = "nicolas".to_string();
+    /// let email = "my@email.address".to_string();
+    /// let date = Date::now();
+    /// let me_now = Person::new(name, email, date.clone());
+    /// assert_eq!(&date, me_now.date());
+    /// ```
+    pub fn date(&self) -> &Date { &self.date }
+
+    // not public
+    fn new_str(name: &str, email: &str, date: Date) -> Self {
+        Person::new(name.to_string(),email.to_string(), date)
+    }
+    /// not public
     fn encode_name_email(&self) -> String {
         format!("{} <{}> ", self.name, self.email).to_string()
     }
@@ -66,16 +167,12 @@ named!( nom_parse_person<Person>
 
 #[cfg(test)]
 mod test {
-    //! contract test. It's more to detect changes and make sure
-    //! things don't break under our feet without knowing it.
-
     use super::*;
-    use ::object::date::Date;
     use ::protocol::test_encoder_decoder;
 
     #[test]
     fn serialisable() {
-        let p = Person::new_str("Nicolas", "nicolas@di-prima.fr", Date::now());
+        let p = Person::now("Nicolas".to_string(), "my@email.address".to_string());
         test_encoder_decoder(p);
     }
 }
