@@ -468,10 +468,17 @@ mod test {
     use std::path::PathBuf;
     use rustc_serialize::base64::FromBase64;
 
-    const SMOCK_TEST : &'static str = r"dHJlZSAyNjMAMTAwNjQ0IC5naXRpZ25vcmUAqdN8VgxquNSvv0ftpkPoxC6FdxYxMDA3NTUgLnRyYXZpcy1naC1wYWdlLnNoAEbDT38yVdmK+SQJ/JgA2VeLfPQTMTAwNjQ0IC50cmF2aXMueW1sAPKTh71UE3UZ1pX/I+m45CZPg/1MMTAwNjQ0IENhcmdvLnRvbWwAIR9U4vc2yn3bOSfhZsDykymwSE8xMDA2NDQgUkVBRE1FLm1kAFCdqnEhZDulIY7WRPP9DExTXeJGNDAwMDAgc3JjALdX29xAs12Qu5uvvpteC90XP7WINDAwMDAgdGVzdF9yZWYAceDFuGz0fxAO5C2fua8aqLT+1dE=";
+    // tree as encoded by the original git (+ encoded in base64)
+    const SMOCK_TEST : &'static str =
+        "dHJlZSAyNjMAMTAwNjQ0IC5naXRpZ25vcmUAqdN8VgxquNSvv0ftpkPoxC6FdxYxMDA3N\
+         TUgLnRyYXZpcy1naC1wYWdlLnNoAEbDT38yVdmK+SQJ/JgA2VeLfPQTMTAwNjQ0IC50cm\
+         F2aXMueW1sAPKTh71UE3UZ1pX/I+m45CZPg/1MMTAwNjQ0IENhcmdvLnRvbWwAIR9U4vc\
+         2yn3bOSfhZsDykymwSE8xMDA2NDQgUkVBRE1FLm1kAFCdqnEhZDulIY7WRPP9DExTXeJG\
+         NDAwMDAgc3JjALdX29xAs12Qu5uvvpteC90XP7WINDAwMDAgdGVzdF9yZWYAceDFuGz0f\
+         xAO5C2fua8aqLT+1dE=";
 
     #[test]
-    fn tree_serialise_smock() {
+    fn regression_test() {
         let data = SMOCK_TEST.from_base64().unwrap();
         test_decode_encode::<Tree<SHA1>>(data);
     }
