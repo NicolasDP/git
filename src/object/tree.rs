@@ -1,3 +1,5 @@
+/*! Git's Tree
+!*/
 use protocol::hash::Hash;
 use protocol::encoder::Encoder;
 use protocol::decoder::Decoder;
