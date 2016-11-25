@@ -1,10 +1,32 @@
 /*! Git date object
 
 based on the [chrono](https://crates.io/crates/chrono) crate.
+
+# Example
+
+Creating a new date for *now*:
+
+```
+use git::object::date::Date;
+
+let now = Date::now();
+println!("Today is: {}", now);
+```
+
+Creating a custom date:
+
+```
+use git::object::date::Date;
+
+let date = Date::ymd_hms(2013, 1, 29, 15, 34, 11)
+            .expect("to have a valid date and time");
+println!("First steps in UK: {}", date);
+```
+
 !*/
 
 extern crate chrono;
-use self::chrono::{DateTime, Local, FixedOffset, NaiveDateTime};
+use self::chrono::{DateTime, Local, FixedOffset, NaiveDateTime, TimeZone};
 use protocol::decoder::*;
 use protocol::encoder::*;
 use std::{fmt, str, io};
@@ -12,6 +34,8 @@ use std::{fmt, str, io};
 use nom;
 
 /// Git date object
+///
+/// It is always at the current `Local` time, without nanoseconds.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Date(DateTime<Local>);
 
@@ -36,6 +60,26 @@ impl Date {
     /// create a new date from EPOCH with the given local timezone
     fn from_epoch(dt: NaiveDateTime, fo: FixedOffset) -> Self {
         Date::new(DateTime::from_utc(dt, fo))
+    }
+
+    /// create custom time from seconds since epoch (using local timezone)
+    pub fn seconds_since_epoch(seconds: i64) -> Self {
+        Date(Local.timestamp(seconds,0))
+    }
+
+    /// Convenient function to make up date from human logic
+    pub fn ymd_hms( year: i32
+                  , month: u32
+                  , day: u32
+                  , hour: u32
+                  , minutes: u32
+                  , seconds: u32
+                  ) -> Option<Self>
+    {
+        Local.ymd_opt(year, month, day)
+            .and_hms_opt(hour, minutes, seconds)
+            .earliest()
+            .map(|dt| Date::new(dt))
     }
 
     /// encode in a object
