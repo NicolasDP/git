@@ -23,22 +23,19 @@ impl fmt::Display for Date {
 
 impl Date {
     /// create a new date set to know and the system local timezone
-    ///
-    /// This is not a nano second precision...
-    pub fn now() -> Self {
-        let loc = Local::now();
-        let dt = NaiveDateTime::from_timestamp(loc.timestamp(), 0);
-        Date(DateTime::from_utc(dt, loc.offset().clone()))
-    }
+    pub fn now() -> Self { Date::new(Local::now()) }
 
     /// create a new date from the given `DateTime`
-    pub fn new(dt: DateTime<Local>) -> Self { Date(dt) }
+    ///
+    /// This function will filter out the nano second precisions (if any).
+    pub fn new(dt: DateTime<Local>) -> Self {
+        let ndt = NaiveDateTime::from_timestamp(dt.timestamp(), 0);
+        Date(DateTime::from_utc(ndt, dt.offset().clone()))
+    }
 
     /// create a new date from EPOCH with the given local timezone
     fn from_epoch(dt: NaiveDateTime, fo: FixedOffset) -> Self {
-        Date(
-            DateTime::from_utc(dt, fo)
-        )
+        Date::new(DateTime::from_utc(dt, fo))
     }
 
     /// encode in a object
