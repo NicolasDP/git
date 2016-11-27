@@ -1,26 +1,6 @@
-/*! Git's Blob (i.e. file)
+//! Git's Blob (i.e. file)
 
-Types relating to Git's Blob:
-
-# Discussion
-
-This part is still under construction and the API might (certainly) change.
-So far we are storing everything in memory (a Vec<u8>). It is does not make
-much sense to do so as we could blow the memory and be quite slow to process
-the data.
-
-Ideally, in the future, the Blob may become a `trait` so we could use
-streamable objects or in memory data depending on what is better.
-
-The composition of a Blob may also differes depending of the backend
-in use. So far we will use in the filesystem as it is the legacy one
-but ideally we could change the backend to a key-value database which
-won't be any different.
-!*/
-
-use protocol::hash::Hash;
-use protocol::encoder::Encoder;
-use protocol::decoder::Decoder;
+use protocol::{Encoder, Decoder, Hash};
 use std::{io, fmt, str, convert};
 use nom;
 
@@ -55,16 +35,36 @@ impl<H: Hash> convert::AsRef<H> for BlobRef<H> {
     fn as_ref(&self) -> &H { &self.0 }
 }
 
-/// Blob data
+/// `Blob` data
 ///
 /// So far this is only in-memory data but it should become something more
 /// efficient in near future.
+///
+/// A `Blob` is referenced by a `BlobRef<H>`.
+///
+/// # Discussion
+///
+/// This part is still under construction and the API might (certainly) change.
+/// So far we are storing everything in memory (a Vec<u8>). It is does not make
+/// much sense to do so as we could blow the memory and be quite slow to process
+/// the data.
+///
+/// Ideally, in the future, the Blob may become a `trait` so we could use
+/// streamable objects or in memory data depending on what is better.
+///
+/// The composition of a Blob may also differes depending of the backend
+/// in use. So far we will use in the filesystem as it is the legacy one
+/// but ideally we could change the backend to a key-value database which
+/// won't be any different.
 ///
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 pub struct Blob(Vec<u8>);
 impl Blob {
     /// create a blob from the given data.
     pub fn new(data: Vec<u8>) -> Self { Blob(data) }
+
+    /// access the inner data as an immutable slice of bytes
+    pub fn as_slice(&self) -> &[u8] { self.0.as_slice() }
 }
 impl Decoder for Blob {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> {

@@ -1,52 +1,43 @@
-/*! Git's Person (author and committer)
+//! Git's Person (author and committer)
 
-Base type for committer and author (embedding a date along):
-
-* a full name;
-* an email address;
-* a date (the date associated to when the person did something on the current object).
-
-# Enhancement
-
-## Date and Person
-
-Semantically, it does not make sense to define a `Person`
-with its actions logged along. A Person's is not defined
-by when it actually did something.
-However, in the context of git, a `Committer` and an `Author`
-will have the same data and will be tagged along a date.
-
-## Data Validation
-
-There is not validation of the username or the email address.
-This is customer's responsabilities to store valide data (or not).
-
-# Example
-
-```
-use git::object::person::Person;
-
-let me_now = Person::now( "Nicolas".to_string()
-                        , "my@email.address".to_string()
-                        );
-println!("Hello! Right now, I am: {}", me_now);
-```
-
-!*/
-
-use super::date::Date;
-use protocol::decoder::*;
-use protocol::encoder::*;
+use super::Date;
+use protocol::{Encoder, Decoder};
 use nom;
 use std::{str, io, fmt};
 
 /// Git's Person data type
 ///
-/// In git, a person will be the following:
+/// Base type for committer and author (embedding a date along):
 ///
 /// * a full name;
 /// * an email address;
 /// * a date (the date associated to when the person did something on the current object).
+///
+/// # Enhancement
+///
+/// ## Date and Person
+///
+/// Semantically, it does not make sense to define a `Person`
+/// with its actions logged along. A Person's is not defined
+/// by when it actually did something.
+/// However, in the context of git, a `Committer` and an `Author`
+/// will have the same data and will be tagged along a date.
+///
+/// ## Data Validation
+///
+/// There is not validation of the username or the email address.
+/// This is customer's responsabilities to store valide data (or not).
+///
+/// # Example
+///
+/// ```
+/// use git::object::Person;
+///
+/// let me_now = Person::now( "Nicolas".to_string()
+///                         , "my@email.address".to_string()
+///                         );
+/// println!("Hello! Right now, I am: {}", me_now);
+/// ```
 ///
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Person {
@@ -59,7 +50,7 @@ impl Person {
     /// convenient function to create a `Person` with the current Date
     ///
     /// ```
-    /// use git::object::person::Person;
+    /// use git::object::Person;
     ///
     /// let me_now = Person::now("nicolas".to_string(), "my@email.address".to_string());
     /// println!("{}", me_now);
@@ -70,8 +61,8 @@ impl Person {
     /// create a new `Person`
     ///
     /// ```
-    /// use git::object::person::Person;
-    /// use git::object::date::Date;
+    /// use git::object::Person;
+    /// use git::object::Date;
     ///
     /// let now = Date::now();
     /// let me_now = Person::new("nicolas".to_string(), "my@email.address".to_string(), now);
@@ -88,7 +79,7 @@ impl Person {
     /// access the `Person`'s name
     ///
     /// ```
-    /// use git::object::person::Person;
+    /// use git::object::Person;
     ///
     /// let name = r"nicolas";
     /// let email = "my@email.address".to_string();
@@ -100,7 +91,7 @@ impl Person {
     /// access the `Person`'s email address
     ///
     /// ```
-    /// use git::object::person::Person;
+    /// use git::object::Person;
     ///
     /// let name = "nicolas".to_string();
     /// let email = r"my@email.address";
@@ -112,8 +103,8 @@ impl Person {
     /// access the `Person`'s date
     ///
     /// ```
-    /// use git::object::person::Person;
-    /// use git::object::date::Date;
+    /// use git::object::Person;
+    /// use git::object::Date;
     ///
     /// let name = "nicolas".to_string();
     /// let email = "my@email.address".to_string();

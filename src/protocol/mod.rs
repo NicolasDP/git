@@ -1,15 +1,15 @@
 /*! git protocols and interfaces
 !*/
 
-pub mod hash;
-pub mod compression;
-pub mod decoder;
-pub mod encoder;
+mod hash;
+mod decoder;
+mod encoder;
 
-#[cfg(test)]
-use self::encoder::Encoder;
-#[cfg(test)]
-use self::decoder::Decoder;
+pub extern crate flate2;
+pub use self::hash::*;
+pub use self::encoder::*;
+pub use self::decoder::*;
+
 #[cfg(test)]
 use std::fmt::{Debug, Display};
 

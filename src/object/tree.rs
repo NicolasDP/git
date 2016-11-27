@@ -1,8 +1,5 @@
-/*! Git's Tree
-!*/
-use protocol::hash::Hash;
-use protocol::encoder::Encoder;
-use protocol::decoder::Decoder;
+//! Git's Tree
+use protocol::{Encoder, Decoder, Hash};
 use super::blob::BlobRef;
 use std::{io, fmt, str, collections, path, cmp, borrow, iter, ops, convert};
 use nom;
@@ -466,7 +463,7 @@ mod test {
     use super::*;
     use ::object::blob::BlobRef;
     use ::protocol::{test_encoder_decoder, test_decode_encode};
-    use ::protocol::hash::{SHA1, Hash};
+    use ::protocol::{SHA1, Hash};
     use std::path::PathBuf;
     use rustc_serialize::base64::FromBase64;
 

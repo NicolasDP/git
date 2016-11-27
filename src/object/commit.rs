@@ -1,8 +1,6 @@
 use super::tree::TreeRef;
 use super::person::Person;
-use protocol::hash::Hash;
-use protocol::encoder::Encoder;
-use protocol::decoder::Decoder;
+use protocol::{Encoder, Decoder, Hash};
 use std::{io, fmt, convert, ops, iter, slice, collections, str};
 use nom;
 
@@ -338,7 +336,7 @@ mod test {
     use super::*;
     use ::protocol::test_decode_encode;
     use rustc_serialize::base64::FromBase64;
-    use ::protocol::hash::SHA1;
+    use ::protocol::SHA1;
 
     const SMOCK_TEST : &'static str =
         "Y29tbWl0IDI0MgB0cmVlIDJlZjk1OTE2MzU2NmYyOWI0YTVhY2I4Y2JlMjE3YzhiMDM2\

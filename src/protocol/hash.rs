@@ -1,25 +1,4 @@
-/*! hash protocol
-
-Originally, git has been using SHA1 to generate unique identifier (ref)
-for objects, commits. In order to prepare the field for a other Hash algorithm
-(but also to be able to mock when testing) we provide a protocol for hashing.
-
-# Common interface
-
-The idea is to provide a simple interface so we can easily change/customise
-the hashing mechanism later on.
-
-# Example
-
-```
-use git::protocol::hash::{SHA1, Hash};
-
-let data = "hello world";
-let hash = SHA1::hash(&mut data.as_bytes()).unwrap();
-assert_eq!(hash.to_hexadecimal(), "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
-```
-
-!*/
+//! hash protocol
 
 use nom;
 
@@ -33,8 +12,24 @@ use std::{str, io, fmt};
 
 /// Hash Protocol
 ///
-/// simple interface to hash different stream
+/// Originally, git has been using SHA1 to generate unique identifier (ref)
+/// for objects, commits. In order to prepare the field for a other Hash algorithm
+/// (but also to be able to mock when testing) we provide a protocol for hashing.
 ///
+/// # Common interface
+///
+/// The idea is to provide a simple interface so we can easily change/customise
+/// the hashing mechanism later on.
+///
+/// # Example
+///
+/// ```
+/// use git::protocol::{SHA1, Hash};
+///
+/// let data = "hello world";
+/// let hash = SHA1::hash(&mut data.as_bytes()).unwrap();
+/// assert_eq!(hash.to_hexadecimal(), "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
+/// ```
 pub trait Hash : Sized {
     /// function to hash a stream
     fn hash<R: BufRead>(data: &mut R) -> Result<Self>;
@@ -73,6 +68,8 @@ pub trait Hash : Sized {
 }
 
 /// Hash SHA1.
+///
+/// See [rust-crypto](https://crates.io/crates/rust-crypto)
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct SHA1(Vec<u8>);
 impl Hash for SHA1 {
@@ -147,7 +144,7 @@ fn decode_hex_<H: Hash>(i: &[u8]) -> nom::IResult<&[u8], H> {
     nom::IResult::Done(i, output)
 }
 named!(nom_parse_hex, take_while1!(nom::is_hex_digit));
-pub fn encode_hex_<H, W>(hash: &H, writer: &mut W) -> io::Result<usize>
+fn encode_hex_<H, W>(hash: &H, writer: &mut W) -> io::Result<usize>
   where H: Hash
       , W: io::Write
 {

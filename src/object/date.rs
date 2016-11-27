@@ -1,41 +1,39 @@
-/*! Git date object
-
-based on the [chrono](https://crates.io/crates/chrono) crate.
-
-# Example
-
-Creating a new date for *now*:
-
-```
-use git::object::date::Date;
-
-let now = Date::now();
-println!("Today is: {}", now);
-```
-
-Creating a custom date:
-
-```
-use git::object::date::Date;
-
-let date = Date::ymd_hms(2013, 1, 29, 15, 34, 11)
-            .expect("to have a valid date and time");
-println!("First steps in UK: {}", date);
-```
-
-!*/
+//! Git date object
 
 extern crate chrono;
 use self::chrono::{DateTime, Local, FixedOffset, NaiveDateTime, TimeZone};
-use protocol::decoder::*;
-use protocol::encoder::*;
+use protocol::{Encoder, Decoder};
 use std::{fmt, str, io};
 
 use nom;
 
 /// Git date object
 ///
+/// Based on the [chrono](https://crates.io/crates/chrono) crate.
+///
 /// It is always at the current `Local` time, without nanoseconds.
+///
+/// # Example
+///
+/// Creating a new date for *now*:
+///
+/// ```
+/// use git::object::Date;
+///
+/// let now = Date::now();
+/// println!("Today is: {}", now);
+/// ```
+///
+/// Creating a custom date:
+///
+/// ```
+/// use git::object::Date;
+///
+/// let date = Date::ymd_hms(2013, 1, 29, 15, 34, 11)
+///             .expect("to have a valid date and time");
+/// println!("First steps in UK: {}", date);
+/// ```
+///
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Date(DateTime<Local>);
 
@@ -49,7 +47,7 @@ impl Date {
     /// create a new date set to know and the system local timezone
     ///
     /// ```
-    /// use git::object::date::Date;
+    /// use git::object::Date;
     ///
     /// let now = Date::now();
     /// println!("Today is: {}", now);
@@ -67,7 +65,7 @@ impl Date {
     /// create custom time from seconds since epoch (using local timezone)
     ///
     /// ```
-    /// use git::object::date::Date;
+    /// use git::object::Date;
     ///
     /// let date = Date::seconds_since_epoch(1479973175);
     /// println!("that day: {}", date);
@@ -79,7 +77,7 @@ impl Date {
     /// Convenient function to make up date from human logic
     ///
     /// ```
-    /// use git::object::date::Date;
+    /// use git::object::Date;
     ///
     /// let date = Date::ymd_hms(2013, 1, 29, 15, 34, 11)
     ///            .expect("to have a valid date and time");
@@ -104,7 +102,7 @@ impl Date {
     /// i.e.: Seconds since EPOCH followed by timezone (`+/-HHMM`).
     ///
     /// ```
-    /// use git::object::date::Date;
+    /// use git::object::Date;
     ///
     /// let date = Date::ymd_hms(2016, 11, 24, 7, 39, 35)
     ///            .expect("to have a valid date and time");
