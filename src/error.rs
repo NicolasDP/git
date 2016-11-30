@@ -17,6 +17,7 @@ pub enum GitError {
     ParsingErrorNotEnough(Option<usize>),
     ParsingErrorUnknown(String),
     IoError(io::Error),
+    Other(String),
     Unknown(String)
 }
 
