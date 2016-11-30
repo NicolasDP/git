@@ -30,6 +30,8 @@ use std::collections::VecDeque;
 //pub mod object;
 pub mod protocol;
 pub mod object;
+pub mod error;
+pub mod refs;
 
 /*
 pub use object::elements::hash::{SHA1, Property, HashRef, HasHashRef};

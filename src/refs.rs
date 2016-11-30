@@ -3,7 +3,7 @@ use std::path::{PathBuf, Path, Component};
 use std::str::FromStr;
 use std::fmt;
 use error::{GitError, Result};
-use object::elements::hash::*;
+use protocol::Hash;
 
 pub type RefName = PathBuf;
 
@@ -12,7 +12,7 @@ pub type RefName = PathBuf;
 /// # Examples
 ///
 /// ```
-/// use git::SpecRef;
+/// use git::refs::SpecRef;
 /// use std::str::FromStr;
 /// use std::path::PathBuf;
 /// let master_branch = SpecRef::Branch(PathBuf::from("master"));
@@ -109,7 +109,8 @@ impl<'a> From<&'a SpecRef> for PathBuf {
 /// # Examples
 ///
 /// ```
-/// use git::{SpecRef, Ref, SHA1};
+/// use git::protocol::SHA1;
+/// use git::refs::{SpecRef, Ref};
 /// use std::str::FromStr;
 /// use std::path::PathBuf;
 /// let master_branch : Ref<SHA1> = Ref::Link(SpecRef::Branch(PathBuf::from("master")));
@@ -117,34 +118,16 @@ impl<'a> From<&'a SpecRef> for PathBuf {
 /// assert_eq!(master_branch, master_ref);
 /// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
-pub enum Ref<Hash: Property> {
-    Hash(HashRef<Hash>),
+pub enum Ref<H: Hash> {
+    Hash(H),
     Link(SpecRef)
 }
-impl<Hash: Property> Ref<Hash> {
-    pub fn hash<T: HasHashRef<Hash> >(t: &T) -> Self { Ref::Hash(t.hash_ref()) }
+impl<H: Hash> Ref<H> {
+    pub fn hash(t: H) -> Self { Ref::Hash(t) }
     pub fn link(sr: SpecRef) -> Self { Ref::Link(sr) }
 }
-impl<Hash: Property> From<Ref<Hash>> for PathBuf {
-    fn from(sr: Ref<Hash>) -> Self {
-        let pb = PathBuf::new();
-        match sr {
-            Ref::Hash(hr) => pb.join("objects").join(hr.path()),
-            Ref::Link(sr) => PathBuf::from(sr)
-        }
-    }
-}
-impl<'a, Hash: Property> From<&'a Ref<Hash>> for PathBuf {
-    fn from(sr: &'a Ref<Hash>) -> Self {
-        let pb = PathBuf::new();
-        match sr {
-            &Ref::Hash(ref hr) => pb.join("objects").join(hr.path()),
-            &Ref::Link(ref sr) => PathBuf::from(sr)
-        }
-    }
-}
 
-impl<Hash: Property> fmt::Display for Ref<Hash> {
+impl<H: Hash+fmt::Display> fmt::Display for Ref<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Ref::Hash(ref r)   => write!(f, "{}", r),
@@ -152,23 +135,24 @@ impl<Hash: Property> fmt::Display for Ref<Hash> {
         }
     }
 }
-
-impl<Hash: Property> FromStr for Ref<Hash> {
+impl<H: Hash> FromStr for Ref<H> {
     type Err = GitError;
     fn from_str(s: &str) -> Result<Self> {
         if s.starts_with("ref: ") {
             let sub :&str = &s[5..];
             return Ok(Ref::Link(try!(SpecRef::from_str(sub))));
         }
-
-        Ok(Ref::Hash(try!(HashRef::from_str(s))))
+        if let Some(h) = H::from_hex(s) {
+            return Ok(Ref::Hash(h))
+        }
+        panic!("not working")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hash::SHA1;
+    use protocol::SHA1;
     use std::str::FromStr;
 
     fn get_specref() -> [SpecRef; 9] {

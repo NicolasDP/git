@@ -1,13 +1,11 @@
 use std::path::PathBuf;
-use std::result;
-//use std::io;
 use std::fmt::Display;
-use std::fmt;
+use std::{io, result, fmt};
 use std::error::Error;
 
 use refs::RefName;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug)]
 pub enum GitError {
     InvalidHashSize(usize, usize),
     MissingDirectory(PathBuf),
@@ -18,7 +16,7 @@ pub enum GitError {
     InvalidRemote(RefName),
     ParsingErrorNotEnough(Option<usize>),
     ParsingErrorUnknown(String),
-    IoError(String),
+    IoError(io::Error),
     Unknown(String)
 }
 
