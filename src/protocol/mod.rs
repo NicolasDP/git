@@ -4,11 +4,13 @@
 mod hash;
 mod decoder;
 mod encoder;
+mod repo;
 
 pub extern crate flate2;
 pub use self::hash::*;
 pub use self::encoder::*;
 pub use self::decoder::*;
+pub use self::repo::*;
 
 #[cfg(test)]
 use std::fmt::{Debug, Display};

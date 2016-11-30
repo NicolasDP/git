@@ -9,3 +9,11 @@ pub use self::person::Person;
 pub use self::blob::{BlobRef, Blob};
 pub use self::tree::{TreeRef, Permission, Permissions, PermissionSet, Tree, TreeEnt};
 pub use self::commit::{CommitRef, Parents, Commit, Encoding, Extras};
+
+use protocol::Hash;
+
+pub enum Object<H: Hash> {
+    Commit(Commit<H>),
+    Tree(Tree<H>),
+    Blob(Blob)
+}
