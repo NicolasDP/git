@@ -106,7 +106,7 @@ impl Date {
     ///
     /// let date = Date::ymd_hms(2016, 11, 24, 7, 39, 35)
     ///            .expect("to have a valid date and time");
-    /// assert_eq!(r"1479973175 +0000", date.encode_for_obj())
+    /// println!("that day: {}", date.encode_for_obj());
     /// ```
     pub fn encode_for_obj(&self) -> String { self.0.format("%s %z").to_string() }
 

@@ -4,10 +4,10 @@ use error::*;
 //use ::hash::SHA1;
 //use ::object::elements::hash::{HashRef, HasHashRef};
 use refs::{SpecRef, Ref};
-use object::Object;
+use object::{Object, Commit, CommitRef};
 use super::Hash;
 
-pub trait Repo<H: Hash> {
+pub trait Repo {
     /// common function to validate the given Git Repository
     /// is valid. See GitFS.
     fn is_valid(&self) -> Result<()>;
@@ -17,14 +17,18 @@ pub trait Repo<H: Hash> {
 
     /// standard function to get the Hash associated to a given
     /// reference (HEAD, master... remote/master...)
-    fn get_ref(&self, r: SpecRef) -> Result<Ref<H>>;
+    fn get_ref<H>(&self, r: SpecRef) -> Result<Ref<H>>
+        where H: Hash;
 
     /// follow the links for a given Ref until a HashRef.
     /// HEAD -> master -> abcdef012345678..
     ///
     /// This function is a combination of get_ref and patten match on the Ref
     /// enumeration.
-    fn get_ref_follow_links(&self, r: SpecRef) -> Result<H> {
+    fn get_ref_follow_links<H>(&self, r: SpecRef)
+        -> Result<H>
+        where H: Hash
+    {
         match try!(self.get_ref(r)) {
             Ref::Link(r) => self.get_ref_follow_links(r),
             Ref::Hash(h) => Ok(h)
@@ -32,22 +36,27 @@ pub trait Repo<H: Hash> {
     }
 
     /// get object from a given hash ref
-    fn get_object(&self, r: H) -> Result<Object<H>>;
+    fn get_object<H, O>(&self, r: O::Id) -> Result<O>
+        where H: Hash
+            , O: Object<H>
+            , O::Id: Hash;
 
     /// default implementation to read an object (a commit if Ref is a SpecRef)
     /// from a given Ref.
     ///
     /// This default implementation is a combination of get_ref_follow_links,
     /// pattern match and get_object.
-    fn get_object_ref(&self, r: Ref<H>) -> Result<Object<H>> {
-        let hr : Result<H> = match r {
-            Ref::Link(sr) => self.get_ref_follow_links(sr),
-            Ref::Hash(hr) => Ok(hr)
+    fn get_object_ref<H>(&self, r: Ref<CommitRef<H>>) -> Result<Commit<H>>
+        where H: Hash
+    {
+        let hr = match r {
+            Ref::Link(sr) => CommitRef::new(try!(self.get_ref_follow_links(sr))),
+            Ref::Hash(hr) => hr
         };
-        hr.and_then(|r| self.get_object(r))
+        self.get_object(hr)
     }
 
-    fn get_head(&self) -> Result<Ref<H>> { self.get_ref(SpecRef::Head) }
+    fn get_head<H: Hash>(&self) -> Result<Ref<H>> { self.get_ref(SpecRef::Head) }
     fn list_branches(&self) -> Result<BTreeSet<SpecRef>>;
     fn list_remotes(&self) -> Result<BTreeSet<SpecRef>>;
     fn list_tags(&self) -> Result<BTreeSet<SpecRef>>;

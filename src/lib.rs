@@ -9,19 +9,6 @@ extern crate rustc_serialize;
 #[macro_use]
 extern crate nom;
 
-/*
-*/
-
-//pub use repo::Repo;
-//pub use object::*;
-//pub use error::*;
-//pub use refs::{Ref, SpecRef};
-
-//mod error;
-//pub mod hash;
-//pub mod repo;
-//pub mod refs;
-//pub mod object;
 pub mod protocol;
 pub mod object;
 pub mod error;

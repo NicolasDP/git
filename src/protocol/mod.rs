@@ -7,6 +7,7 @@ mod encoder;
 mod repo;
 
 pub extern crate flate2;
+pub use self::flate2::read::{ZlibDecoder, ZlibEncoder};
 pub use self::hash::*;
 pub use self::encoder::*;
 pub use self::decoder::*;

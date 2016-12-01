@@ -5,11 +5,11 @@ use std::str::FromStr;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 
-use protocol::Repo;
-use protocol::SHA1;
+use protocol::{Repo, Hash, ZlibDecoder};
 use error::{Result, GitError};
 use refs::{SpecRef, Ref};
 use object::{Object};
+use nom;
 
 /// default structure used to contain some information regarding the git repository
 /// some information such as the file path.
@@ -18,6 +18,8 @@ pub struct GitFS {
     path: PathBuf,
 }
 
+/// convenient function to open a file or wrap up the error into a
+/// the Git Error.
 fn open_file(path: &PathBuf) -> Result<File> {
     File::open(path)
         .map_err(|err| GitError::IoError(err))
@@ -31,6 +33,8 @@ fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P)
         .map_err(|err| GitError::IoError(err))
         .map(|l| {
             l.fold(queue, |queue, d| {
+                // TODO: the error is ignored... this is not what we want
+                // we need to propagate the error if something wrong happened.
                 let _ = d.map_err(|err| GitError::IoError(err))
                          .map(|dir| queue.push_back(dir.path()));
                 queue
@@ -38,6 +42,7 @@ fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P)
         })
 }
 
+/// helper to list all files present in a directories and its subdirectories
 pub fn get_all_files_in<T>( parent_path: T
                           , make_specref: & Fn(&Path) -> Result<SpecRef>
                           )
@@ -63,7 +68,7 @@ pub fn get_all_files_in<T>( parent_path: T
 }
 
 impl GitFS {
-    /// create a Git struct from a given path
+    /// Open a git from the given path (the git directory must be valid)
     ///
     /// Will fail if the given directory does not look like a valid git
     /// directory.
@@ -79,6 +84,11 @@ impl GitFS {
     ///   Err(_) => { /* invalid path or invaild git repository */ }
     /// }
     /// ```
+    /// 
+    /// This function will open the directory and check it is a valid repository
+    /// and then returned the loaded GitFS.
+    ///
+    /// TODO: rename to `open`
     pub fn new(p: &Path) -> Result<Self> {
         let git = GitFS { path: p.to_path_buf() };
         git.check_repo().map(move |_| git)
@@ -134,8 +144,9 @@ impl GitFS {
         Ok(())
     }
 }
-impl Repo<SHA1> for GitFS {
+impl Repo for GitFS {
     fn is_valid(&self) -> Result<()> { self.check_repo() }
+
     fn get_description(&self) -> Result<String> {
         let filepath = self.description_file();
         let mut file = try!(open_file(&filepath));
@@ -144,7 +155,8 @@ impl Repo<SHA1> for GitFS {
             .map_err(|err| GitError::IoError(err))
             .map(move |_| s)
     }
-    fn get_ref(&self, r: SpecRef) -> Result<Ref<SHA1>> {
+
+    fn get_ref<H: Hash>(&self, r: SpecRef) -> Result<Ref<H>> {
         let filepath = self.path.to_path_buf().join(PathBuf::from(r));
         let mut file = try!(open_file(&filepath));
         let mut s = String::new();
@@ -153,11 +165,14 @@ impl Repo<SHA1> for GitFS {
             .and_then(|_| Ref::from_str(&s))
     }
 
-    fn get_object(&self, hhr: SHA1) -> Result<Object<SHA1>> {
-        unimplemented!()
-/*
-        let r = hhr.hash_ref();
-        let path = self.objs_dir().join(r.path());
+    fn get_object<H, O>(&self, hhr: O::Id) -> Result<O>
+        where H: Hash
+            , O: Object<H>
+            , O::Id: Hash
+    {
+        let r = hhr.to_hexadecimal();
+        let (rh, lh) = r.as_str().split_at(2);
+        let path = self.objs_dir().join(rh).join(lh);
         if ! path.is_file() {
             return Err(GitError::InvalidRef(path))
         }
@@ -167,9 +182,11 @@ impl Repo<SHA1> for GitFS {
         zlibr.read_to_end(&mut s)
              .map_err(|err| GitError::IoError(err))
              .and_then(|_| {
-                 Object::parse_bytes(s.as_ref())
+                 match O::decode(s.as_ref()) {
+                     nom::IResult::Done(_, v) => Ok(v),
+                     _ => panic!()
+                 }
              })
-*/
     }
 
     fn list_branches(&self) -> Result<BTreeSet<SpecRef>> {
