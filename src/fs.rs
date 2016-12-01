@@ -184,7 +184,10 @@ impl Repo for GitFS {
              .and_then(|_| {
                  match O::decode(s.as_ref()) {
                      nom::IResult::Done(_, v) => Ok(v),
-                     _ => panic!()
+                     nom::IResult::Error(err) => {
+                         Err(GitError::ParsingError(format!("{:?}", err)))
+                     },
+                     nom::IResult::Incomplete(err) => Err(GitError::ParsingErrorNotEnough(None))
                  }
              })
     }

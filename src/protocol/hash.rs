@@ -70,7 +70,7 @@ pub trait Hash : Sized {
 /// Hash SHA1.
 ///
 /// See [rust-crypto](https://crates.io/crates/rust-crypto)
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 pub struct SHA1(Vec<u8>);
 impl Hash for SHA1 {
     #[inline]
