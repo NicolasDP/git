@@ -2,6 +2,7 @@
 
 [ "${TRAVIS_BRANCH}" = "master" ] || exit 0
 [ "${TRAVIS_PULL_REQUEST}" = "false" ] || exit 0
+[ "${TRAVIS_RUST_VERSION}" = "stable" ] || exit 0
 
 cargo doc
 
