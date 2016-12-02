@@ -11,6 +11,10 @@ chrono="*"
 nom="~2"
 rustc-serialize="*"
 
+[[bin]]
+name="git"
+doc=false
+
 [dependencies.clap]
 version = "~2.19.0"
 default-features = false
