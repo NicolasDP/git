@@ -43,9 +43,9 @@ fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P)
 }
 
 /// helper to list all files present in a directories and its subdirectories
-pub fn get_all_files_in<T>( parent_path: T
-                          , make_specref: & Fn(&Path) -> Result<SpecRef>
-                          )
+fn get_all_files_in<T>( parent_path: T
+                      , make_specref: & Fn(&Path) -> Result<SpecRef>
+                      )
     -> Result<BTreeSet<SpecRef>>
     where T: AsRef<Path>
 {
