@@ -68,15 +68,19 @@ impl Blob {
 }
 impl Decoder for Blob {
     fn decode(b: &[u8]) -> nom::IResult<&[u8], Self> {
-        let (i, size) = match nom_parse_blob(b) {
-            nom::IResult::Done(i, b) => (i, b),
-            nom::IResult::Error(err) => return nom::IResult::Error(err),
-            nom::IResult::Incomplete(n) => return nom::IResult::Incomplete(n)
-        };
-        if i.len() < size {
-            return nom::IResult::Incomplete(nom::Needed::Size(size - i.len()));
+        let (b, size) = try_parse!(b, nom_parse_blob);
+        if b.len() < size {
+            return nom::IResult::Incomplete(nom::Needed::Size(size - b.len()));
         }
-        nom::IResult::Done(&i[size..], Blob::new(i[..size].iter().cloned().collect()))
+        nom::IResult::Done(
+            &b[size..],
+            Blob::new(b[..size].iter().cloned().collect())
+        )
+    }
+}
+impl fmt::Display for Blob {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", unsafe { String::from_utf8_unchecked(self.0.clone()) } )
     }
 }
 impl Encoder for Blob {

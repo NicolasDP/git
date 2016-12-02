@@ -2,9 +2,9 @@ extern crate git;
 extern crate clap;
 use clap::{Arg, App, SubCommand};
 use std::path::Path;
-use git::object::{CommitRef, Commit, TreeRef, Tree};
+use std::str::FromStr;
+use git::refs::SpecRef;
 use git::protocol::{SHA1, Hash, Repo};
-use git::error::Result;
 
 fn main() {
     let matches = App::new("git")
@@ -24,21 +24,17 @@ fn main() {
             ).get_matches();
 
     if let Some(matches) = matches.subcommand_matches("cat-file") {
-        let r = matches.value_of("REF").unwrap();
+        let r = matches.value_of("REF").expect("reference to git Object");
 
-        let git = git::fs::GitFS::new(Path::new(".git")).unwrap();
-        let hash = SHA1::from_hex(r).unwrap();
+        let git = git::fs::GitFS::new(Path::new(".git")).expect("valid git repository");
+        let hash = match SHA1::from_hex(r.clone()) {
+            Some(e) => e,
+            None    => git.get_ref_follow_links(
+                SpecRef::from_str(r.clone()).unwrap()
+            ).unwrap()
+        };
 
-        let cmt = CommitRef::new(hash.clone());
-        let mcommit : Result<Commit<SHA1>> = git.get_object(cmt);
-        if let Ok(commit) = mcommit {
-            println!("{}", commit);
-        } else {
-            let cmt = TreeRef::new(hash.clone());
-            let mtree : Result<Tree<SHA1>> = git.get_object(cmt);
-            if let Ok(tree) = mtree {
-                println!("{}", tree);
-            }
-        }
+
+        println!("{}", git.get_object_(hash).unwrap());
     }
 }

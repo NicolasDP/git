@@ -5,10 +5,10 @@ use std::str::FromStr;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 
-use protocol::{Repo, Hash, ZlibDecoder};
+use protocol::{Repo, Hash, ZlibDecoder, Decoder};
 use error::{Result, GitError};
 use refs::{SpecRef, Ref};
-use object::{Object};
+use object::{Object, Obj};
 use nom;
 
 /// default structure used to contain some information regarding the git repository
@@ -22,7 +22,7 @@ pub struct GitFS {
 /// the Git Error.
 fn open_file(path: &PathBuf) -> Result<File> {
     File::open(path)
-        .map_err(|err| GitError::IoError(err))
+        .map_err(|err| GitError::ioerror(err))
 }
 
 fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P)
@@ -30,12 +30,12 @@ fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P)
     where P: AsRef<Path>
 {
     path.as_ref().read_dir()
-        .map_err(|err| GitError::IoError(err))
+        .map_err(|err| GitError::ioerror(err))
         .map(|l| {
             l.fold(queue, |queue, d| {
                 // TODO: the error is ignored... this is not what we want
                 // we need to propagate the error if something wrong happened.
-                let _ = d.map_err(|err| GitError::IoError(err))
+                let _ = d.map_err(|err| GitError::ioerror(err))
                          .map(|dir| queue.push_back(dir.path()));
                 queue
             });
@@ -77,14 +77,14 @@ impl GitFS {
     ///
     /// ```
     /// use std::path::*;
-    /// use git::GitFS;
+    /// use git::fs::GitFS;
     /// let git_path = PathBuf::new().join("path").join("to").join("nowhere");
     /// match GitFS::new(&git_path) {
     ///   Ok(_)    => { /* I have a valid git repository */ },
     ///   Err(_) => { /* invalid path or invaild git repository */ }
     /// }
     /// ```
-    /// 
+    ///
     /// This function will open the directory and check it is a valid repository
     /// and then returned the loaded GitFS.
     ///
@@ -100,7 +100,7 @@ impl GitFS {
     ///
     /// ```
     /// use std::path::*;
-    /// use git::GitFS;
+    /// use git::fs::GitFS;
     /// let git_path = PathBuf::new().join(".").join(".git");
     /// let git = GitFS::new(&git_path).unwrap();
     /// let refs_dir = git.refs_dir();
@@ -152,7 +152,7 @@ impl Repo for GitFS {
         let mut file = try!(open_file(&filepath));
         let mut s = String::new();
         file.read_to_string(&mut s)
-            .map_err(|err| GitError::IoError(err))
+            .map_err(|err| GitError::ioerror(err))
             .map(move |_| s)
     }
 
@@ -161,10 +161,32 @@ impl Repo for GitFS {
         let mut file = try!(open_file(&filepath));
         let mut s = String::new();
         file.read_to_string(&mut s)
-            .map_err(|err| GitError::IoError(err))
+            .map_err(|err| GitError::ioerror(err))
             .and_then(|_| Ref::from_str(&s))
     }
 
+    fn get_object_<H>(&self, hhr: H) -> Result<Obj<H>> where H:Hash {
+        let r = hhr.to_hexadecimal();
+        let (rh, lh) = r.as_str().split_at(2);
+        let path = self.objs_dir().join(rh).join(lh);
+        if ! path.is_file() {
+            return Err(GitError::InvalidRef(path))
+        }
+        let file = try!(open_file(&path));
+        let mut zlibr = ZlibDecoder::new(file);
+        let mut s = Vec::new();
+        zlibr.read_to_end(&mut s)
+             .map_err(|err| GitError::ioerror(err))
+             .and_then(|_| {
+                 match Obj::<H>::decode(s.as_ref()) {
+                     nom::IResult::Done(_, v) => Ok(v),
+                     nom::IResult::Error(err) => {
+                         Err(GitError::ParsingError(format!("{:?}", err)))
+                     },
+                     nom::IResult::Incomplete(err) => Err(GitError::ParsingErrorNotEnough(None))
+                 }
+             })
+    }
     fn get_object<H, O>(&self, hhr: O::Id) -> Result<O>
         where H: Hash
             , O: Object<H>
@@ -180,7 +202,7 @@ impl Repo for GitFS {
         let mut zlibr = ZlibDecoder::new(file);
         let mut s = Vec::new();
         zlibr.read_to_end(&mut s)
-             .map_err(|err| GitError::IoError(err))
+             .map_err(|err| GitError::ioerror(err))
              .and_then(|_| {
                  match O::decode(s.as_ref()) {
                      nom::IResult::Done(_, v) => Ok(v),
@@ -216,5 +238,105 @@ impl Repo for GitFS {
         get_all_files_in( self.refs_dir().join("tags")
                         , &|x| Ok(SpecRef::tag(x))
                         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::protocol::*;
+    use ::error::*;
+    use ::refs::*;
+    use ::object::*;
+    use std::path::*;
+
+    fn get_test_commit() -> Ref<CommitRef<SHA1>> {
+        Ref::Link(SpecRef::branch("master"))
+    }
+
+    fn get_root_test() -> PathBuf {
+        PathBuf::new().join(".").join("test_ref").join(".git")
+    }
+
+    #[test]
+    fn new() {
+        let path = get_root_test();
+        assert_eq!(GitFS::new(&path), Ok(GitFS { path: path.clone()}))
+    }
+    #[test]
+    fn new_fail() {
+        let path = PathBuf::new().join(".").join("src");
+        let missing = PathBuf::new().join(".").join("src").join("refs");
+        assert_eq!(GitFS::new(&path), Err(GitError::MissingDirectory(missing)))
+    }
+
+    #[test]
+    fn git_fs_get_description() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let desc = git.get_description();
+        assert!(desc.is_ok())
+    }
+
+    #[test]
+    fn git_fs_get_ref() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let r = SpecRef::branch("master");
+        let result : Result<Ref<SHA1>> = git.get_ref(r);
+        assert!(result.is_ok())
+    }
+    #[test]
+    fn git_fs_get_ref_follow_link() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let result : Result<SHA1> = git.get_ref_follow_links(SpecRef::Head);
+        assert!(result.is_ok())
+    }
+    #[test]
+    fn git_fs_get_head() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let head : Result<Ref<SHA1>> = git.get_head();
+        assert_eq!( head
+                  , Ok(Ref::Link(SpecRef::branch("master")))
+                  )
+    }
+    #[test]
+    fn git_fs_get_branches() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let branches = git.list_branches().expect("expect to list the branches");
+        assert!(branches.contains(&SpecRef::branch("master")));
+    }
+    #[test]
+    fn git_fs_get_remotes() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let branches = git.list_remotes().expect("expect to list the remotes");
+        println!("{:?}", branches);
+        assert!( branches.contains(&SpecRef::remote("origin", "HEAD"))
+                 || branches.contains(&SpecRef::remote("origin", "master")));
+    }
+    #[test]
+    fn git_fs_get_commit() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let commit = git.get_object_ref(get_test_commit()).unwrap();
+        println!("{}", commit)
+    }
+    #[test]
+    fn git_fs_get_tree() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        // get the head
+        let commit =
+            git.get_object_ref(get_test_commit())
+                    .expect("expected to read a commit object");
+
+        let tree : Tree<SHA1> = git.get_object(commit.tree_ref.clone())
+                      .expect("expected to read a Tree object");
+        println!("++ Tree ++++++++++++++++++++++++++");
+        println!("{}", tree)
     }
 }

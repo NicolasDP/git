@@ -5,7 +5,7 @@ use std::error::Error;
 
 use refs::RefName;
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum GitError {
     InvalidHashSize(usize, usize),
     MissingDirectory(PathBuf),
@@ -16,9 +16,15 @@ pub enum GitError {
     InvalidRemote(RefName),
     ParsingErrorNotEnough(Option<usize>),
     ParsingError(String),
-    IoError(io::Error),
+    IoError(String),
     Other(String),
     Unknown(String)
+}
+impl GitError {
+    #[inline(always)]
+    pub fn ioerror(err: io::Error) -> Self {
+        GitError::IoError(format!("{:?}", err))
+    }
 }
 
 impl Display for GitError {
