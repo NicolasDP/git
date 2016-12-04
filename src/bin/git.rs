@@ -4,6 +4,7 @@ use clap::{Arg, App, SubCommand};
 use std::path::Path;
 use std::str::FromStr;
 use git::refs::SpecRef;
+use git::object::*;
 use git::protocol::{SHA1, Hash, Repo};
 
 fn main() {
