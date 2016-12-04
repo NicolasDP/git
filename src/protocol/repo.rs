@@ -4,7 +4,7 @@ use error::*;
 //use ::hash::SHA1;
 //use ::object::elements::hash::{HashRef, HasHashRef};
 use refs::{SpecRef, Ref};
-use object::{Obj, Object, Commit, CommitRef};
+use object::{Obj, Object, Commit, CommitRef, Tree, TreeRef, BlobRef, Blob};
 use super::Hash;
 
 pub trait Repo {
@@ -41,6 +41,15 @@ pub trait Repo {
             , O: Object<H>
             , O::Id: Hash;
     fn get_object_<H>(&self, r: H) -> Result<Obj<H>> where H:Hash;
+    fn get_commit<H: Hash>(&self, h: CommitRef<H>) -> Result<Commit<H>> {
+        self.get_object(h)
+    }
+    fn get_tree<H: Hash>(&self, h: TreeRef<H>) -> Result<Tree<H>> {
+        self.get_object(h)
+    }
+    fn get_blob<H: Hash>(&self, h: BlobRef<H>) -> Result<Blob> {
+        self.get_object(h)
+    }
 
     /// default implementation to read an object (a commit if Ref is a SpecRef)
     /// from a given Ref.
