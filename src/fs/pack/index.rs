@@ -161,6 +161,15 @@ impl<H: Hash> Index<H> {
 
 pub fn parse_index<H:Hash>(i: &[u8]) -> nom::IResult<&[u8], Index<H>> {
     let (i, header)  = try_parse!(i, nom_parse_index_header);
+    println!("{:?}", header);
+    if header.magic != 0xff744f63 {
+        // panic!("wrong magic {:?}", header.magic);
+        return nom::IResult::Error(nom::ErrorKind::IsNot);
+    }
+    if header.version != 2 {
+        // panic!("wrong version {:?}", header.version);
+        return nom::IResult::Error(nom::ErrorKind::IsNot);
+    }
     let (i, hashes)  = try_parse!(i, count!(H::decode_bytes, header.size()));
     let (i, crcs)    = try_parse!(i, count!(u32!(nom::Endianness::Big), header.size()));
     let (mut i, mut offsets) = try_parse!(i, count!(map!(u32!(nom::Endianness::Big), |v| v as usize), header.size()));
