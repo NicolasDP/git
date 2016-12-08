@@ -119,11 +119,11 @@ pub fn list_indexes<H: Ord+Hash>(git: &GitFS) -> Result<BTreeSet<IndexRef<H>>> {
     get_all_files_in(
         git.objs_dir().join("pack"),
         & |path| {
-            if !path.starts_with("idx-") || !path.ends_with(".pack") {
+            let path_str = format!("{}", path.display());
+            if !path_str.starts_with("pack-") || !path_str.ends_with(".idx") {
                 Ok(None)
             } else {
-                let stringit = format!("{}", path.display());
-                let data = &stringit.as_str()[4..stringit.len()-5];
+                let data = &path_str.as_str()[5..path_str.len()-4];
                 Ok(IndexRef::<H>::from_hex(data))
             }
         }
