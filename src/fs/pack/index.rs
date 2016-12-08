@@ -74,9 +74,9 @@ impl Header {
     }
 }
 
-named!(nom_parse_index_header_magic, tag!([0xff, 0x74, 0x4f, 0x63]));
-named!(nom_parse_index_header_version<u32>, u32!(nom::Endianness::Little));
-named!(nom_parse_index_header_fanaout<u32>, u32!(nom::Endianness::Little));
+named!(nom_parse_index_header_magic<u32>, u32!(nom::Endianness::Big));
+named!(nom_parse_index_header_version<u32>, u32!(nom::Endianness::Big));
+named!(nom_parse_index_header_fanaout<u32>, u32!(nom::Endianness::Big));
 named!(nom_parse_index_header_fanouts<[u32;256]>, count_fixed!(u32, nom_parse_index_header_fanaout, 256));
 named!(
     nom_parse_index_header<Header>,
