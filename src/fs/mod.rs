@@ -2,7 +2,6 @@ use std::path::*;
 use std::io::Read;
 use std::str::FromStr;
 use std::collections::BTreeSet;
-use std::collections::VecDeque;
 
 use protocol::{Repo, Hash, ZlibDecoder, Decoder};
 use error::{Result, GitError};
