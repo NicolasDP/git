@@ -162,12 +162,12 @@ impl<H: Hash> Index<H> {
 pub fn parse_index<H:Hash>(i: &[u8]) -> nom::IResult<&[u8], Index<H>> {
     let (i, header)  = try_parse!(i, nom_parse_index_header);
     let (i, hashes)  = try_parse!(i, count!(H::decode_bytes, header.size()));
-    let (i, crcs)    = try_parse!(i, count!(u32!(nom::Endianness::Little), header.size()));
-    let (mut i, mut offsets) = try_parse!(i, count!(map!(u32!(nom::Endianness::Little), |v| v as usize), header.size()));
+    let (i, crcs)    = try_parse!(i, count!(u32!(nom::Endianness::Big), header.size()));
+    let (mut i, mut offsets) = try_parse!(i, count!(map!(u32!(nom::Endianness::Big), |v| v as usize), header.size()));
     for offset in offsets.iter_mut() {
         let u = *offset as u32;
         if (u & 0x80000000) != 0 {
-            let (i_, large_offset) = try_parse!(i, map!(u64!(nom::Endianness::Little), |v| v as usize));
+            let (i_, large_offset) = try_parse!(i, map!(u64!(nom::Endianness::Big), |v| v as usize));
             *offset = large_offset;
             i = i_;
         }
