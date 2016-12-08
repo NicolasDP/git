@@ -7,6 +7,7 @@ use refs::RefName;
 
 #[derive(PartialEq, Debug)]
 pub enum GitError {
+    OutOfBound(usize, usize),
     InvalidHashSize(usize, usize),
     MissingDirectory(PathBuf),
     MissingFile(PathBuf),
