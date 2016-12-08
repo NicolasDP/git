@@ -185,3 +185,34 @@ pub fn parse_index<H:Hash>(i: &[u8]) -> nom::IResult<&[u8], Index<H>> {
     let (i, index) = try_parse!(i, IndexRef::<H>::decode_bytes);
     nom::IResult::Done(i, Index::new(header, hashes, crcs, offsets, pack, index))
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use ::protocol::{Hash, SHA1};
+    use ::fs::util::*;
+    use std::path::PathBuf;
+    use std::io::Read;
+    use ::fs::GitFS;
+
+    #[test]
+    fn parse_all() {
+        let path = PathBuf::new().join(".git");
+        let git = GitFS::new(&path).unwrap();
+        let l = list_indexes::<SHA1>(&git).unwrap();
+        for idx in l.iter() {
+            let idx_file = format!("pack-{}.idx", idx.to_hexadecimal());
+            let path_idx = git.objs_dir().join("pack").join(idx_file);
+            parse_idx(&path_idx)
+        }
+    }
+
+    fn parse_idx(path: &PathBuf) {
+        let mut file = open_file(&path)
+                        .expect("unable to open the file for the git pack index");
+        let mut s = Vec::new();
+        file.read_to_end(&mut s).unwrap();
+        let (_, index) : (&[u8], Index<SHA1>) = parse_index(s.as_ref()).unwrap();
+        println!("{:?}", index.header);
+    }
+}
