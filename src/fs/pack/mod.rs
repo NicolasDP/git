@@ -1,11 +1,7 @@
-use std::{fmt, convert, io, path};
-use std::collections::BTreeSet;
-use nom;
+use std::{fmt, convert, io};
 
 use ::protocol::Hash;
-use error::{Result, GitError};
-use super::util::get_all_files_in;
-use super::GitFS;
+use error::{Result};
 
 pub mod index;
 
