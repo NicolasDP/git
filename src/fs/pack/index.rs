@@ -14,38 +14,41 @@ const INDEX_HASH_OFFSET : usize = INDEX_HEADER_SIZE;
 
 #[derive(Copy)]
 pub struct Header {
+    magic:   u32,
     version: u32,
     fanouts:  [u32;256]
 }
 impl Clone for Header {
-    fn clone(&self) -> Self { Header { version: self.version, fanouts: self.fanouts} }
+    fn clone(&self) -> Self { Header { magic: self.magic, version: self.version, fanouts: self.fanouts} }
 }
 impl PartialEq for Header {
     fn eq(&self, rhs: &Self) -> bool {
         return self.version == rhs.version &&
+               self.magic   == self.magic &&
               &self.fanouts[..] == &rhs.fanouts[..]
     }
 }
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Header {{ version: {:?}, fanouts: {:?} }}", self.version, &self.fanouts[..])
+        write!(f, "Header {{ magic: {:?}, version: {:?}, fanouts: {:?} }}", self.magic, self.version, &self.fanouts[..])
     }
 
 }
 impl Eq for Header {}
 impl PartialOrd for Header {
     fn partial_cmp(&self, rhs: &Self) -> Option<cmp::Ordering> {
-        return (&self.version, &self.fanouts[..]).partial_cmp(&(&rhs.version, &rhs.fanouts[..]))
+        return (&self.magic, &self.version, &self.fanouts[..]).partial_cmp(&(&rhs.magic, &rhs.version, &rhs.fanouts[..]))
     }
 }
 impl Ord for Header {
     fn cmp(&self, rhs: &Self) -> cmp::Ordering {
-        return (&self.version, &self.fanouts[..]).cmp(&(&rhs.version, &rhs.fanouts[..]))
+        return (&self.magic, &self.version, &self.fanouts[..]).cmp(&(&rhs.magic, &rhs.version, &rhs.fanouts[..]))
     }
 }
 impl Header {
-    fn new(version: u32, fanouts: [u32;256]) -> Self {
+    fn new(magic: u32, version: u32, fanouts: [u32;256]) -> Self {
         Header {
+            magic:   magic,
             version: version,
             fanouts: fanouts
         }
@@ -78,10 +81,10 @@ named!(nom_parse_index_header_fanouts<[u32;256]>, count_fixed!(u32, nom_parse_in
 named!(
     nom_parse_index_header<Header>,
     do_parse!(
-        nom_parse_index_header_magic >>
+        magic:   nom_parse_index_header_magic >>
         version: nom_parse_index_header_version >>
         fanouts: nom_parse_index_header_fanouts >>
-        (Header::new(version, fanouts))
+        (Header::new(magic, version, fanouts))
     )
 );
 
