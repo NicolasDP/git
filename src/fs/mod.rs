@@ -2,7 +2,7 @@ use std::path::*;
 use std::io::Read;
 use std::str::FromStr;
 
-use protocol::{Repo, Hash, ZlibDecoder, Decoder};
+use protocol::{Repo, Hash, ZlibDecoder, Decoder, Partial};
 use error::{Result, GitError};
 use refs::{SpecRef, Ref};
 use object::{Object, Obj};
@@ -13,6 +13,7 @@ mod util;
 
 pub use self::pack::*;
 use self::util::*;
+use self::pack::index::{list_indexes, IndexRef, parse_index_file};
 
 /// default structure used to contain some information regarding the git repository
 /// some information such as the file path.
@@ -168,6 +169,20 @@ impl Repo for GitFS {
              })
     }
 
+    fn lookup_hash<H: Hash>(&self, prefix: &Partial<H>) -> Result<Vec<H>> {
+        let mut looses = Vec::new();// try!(self.lookup_hash_loose(prefix.to_hexadecimal()));
+        for idx in list_indexes::<H>(self)?.iter() {
+            let idx_file = format!("pack-{}.idx", idx.to_hexadecimal());
+            let path_idx = self.objs_dir().join("pack").join(idx_file);
+            let index = try!(parse_index_file::<H>(&path_idx));
+            looses.extend(
+                index.hashes.into_iter().filter(
+                    |h| prefix.is_prefix_of(h)
+                )
+            )
+        }
+        Ok(looses)
+    }
     fn list_branches(&self) -> Result<Vec<SpecRef>> {
         get_all_files_in( self.refs_dir().join("heads")
                         , &|x| Ok(Some(SpecRef::branch(x)))
@@ -214,6 +229,18 @@ mod tests {
         PathBuf::new().join(".").join("test_ref").join(".git")
     }
 
+    #[test]
+    fn loopup() {
+        let path = get_root_test();
+        let git = GitFS::new(&path).unwrap();
+        let r = git.lookup_hash(
+            &Partial::<SHA1>::from_hex("b1").unwrap()
+        ).unwrap();
+        for h in r.iter() {
+            println!("{}", h);
+        }
+        assert!(false)
+    }
     #[test]
     fn new() {
         let path = get_root_test();

@@ -1,11 +1,9 @@
-use std::collections::BTreeSet;
-
 use error::*;
 //use ::hash::SHA1;
 //use ::object::elements::hash::{HashRef, HasHashRef};
 use refs::{SpecRef, Ref};
 use object::{Obj, Object, Commit, CommitRef, Tree, TreeRef, BlobRef, Blob};
-use super::Hash;
+use super::{Hash, Partial};
 
 pub trait Repo {
     /// common function to validate the given Git Repository
@@ -34,6 +32,7 @@ pub trait Repo {
             Ref::Hash(h) => Ok(h)
         }
     }
+    fn lookup_hash<H: Hash>(&self, prefix: &Partial<H>) -> Result<Vec<H>>;
 
     /// get object from a given hash ref
     fn get_object<H, O>(&self, r: O::Id) -> Result<O>
