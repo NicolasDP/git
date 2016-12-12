@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["index",""]],"struct":[["GitFS","default structure used to contain some information regarding the git repository some information such as the file path."],["PackRef",""]]});

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Blob` struct in crate `git`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Blob">
+
+    <title>git::object::Blob - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>git</a>::<wbr><a href='index.html'>object</a></p><script>window.sidebarCurrent = {name: 'Blob', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>git</a>::<wbr><a href='index.html'>object</a>::<wbr><a class='struct' href=''>Blob</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-1037' class='srclink' href='../../src/git/src/object/blob.rs.html#62' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Blob(_);</pre><div class='docblock'><p><code>Blob</code> data</p>
+
+<p>So far this is only in-memory data but it should become something more
+efficient in near future.</p>
+
+<p>A <code>Blob</code> is referenced by a <code>BlobRef&lt;H&gt;</code>.</p>
+
+<h1 id='discussion' class='section-header'><a href='#discussion'>Discussion</a></h1>
+<p>This part is still under construction and the API might (certainly) change.
+So far we are storing everything in memory (a Vec<u8>). It is does not make
+much sense to do so as we could blow the memory and be quite slow to process
+the data.</p>
+
+<p>Ideally, in the future, the Blob may become a <code>trait</code> so we could use
+streamable objects or in memory data depending on what is better.</p>
+
+<p>The composition of a Blob may also differes depending of the backend
+in use. So far we will use in the filesystem as it is the legacy one
+but ideally we could change the backend to a key-value database which
+won&#39;t be any different.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1098' class='srclink' href='../../src/git/src/object/blob.rs.html#63-69' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class='method'><span id='new.v' class='invisible'><code>fn <a href='#method.new' class='fnname'>new</a>(data: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;) -&gt; Self</code></span></h4>
+<div class='docblock'><p>create a blob from the given data.</p>
+</div><h4 id='method.as_slice' class='method'><span id='as_slice.v' class='invisible'><code>fn <a href='#method.as_slice' class='fnname'>as_slice</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a></code></span></h4>
+<div class='docblock'><p>access the inner data as an immutable slice of bytes</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1040' class='srclink' href='../../src/git/src/object/blob.rs.html#61' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.eq' class='method'><span id='eq.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></span></h4>
+<div class='docblock'><p>This method tests for <code>self</code> and <code>other</code> values to be equal, and is used by <code>==</code>. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq">Read more</a></p>
+</div><h4 id='method.ne' class='method'><span id='ne.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></span></h4>
+<div class='docblock'><p>This method tests for <code>!=</code>.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1051' class='srclink' href='../../src/git/src/object/blob.rs.html#61' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1054' class='srclink' href='../../src/git/src/object/blob.rs.html#61' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.partial_cmp' class='method'><span id='partial_cmp.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#tymethod.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></span></h4>
+<div class='docblock'><p>This method returns an ordering between <code>self</code> and <code>other</code> values if one exists. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#tymethod.partial_cmp">Read more</a></p>
+</div><h4 id='method.lt' class='method'><span id='lt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></span></h4>
+<div class='docblock'><p>This method tests less than (for <code>self</code> and <code>other</code>) and is used by the <code>&lt;</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt">Read more</a></p>
+</div><h4 id='method.le' class='method'><span id='le.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></span></h4>
+<div class='docblock'><p>This method tests less than or equal to (for <code>self</code> and <code>other</code>) and is used by the <code>&lt;=</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le">Read more</a></p>
+</div><h4 id='method.gt' class='method'><span id='gt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></span></h4>
+<div class='docblock'><p>This method tests greater than (for <code>self</code> and <code>other</code>) and is used by the <code>&gt;</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt">Read more</a></p>
+</div><h4 id='method.ge' class='method'><span id='ge.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></span></h4>
+<div class='docblock'><p>This method tests greater than or equal to (for <code>self</code> and <code>other</code>) and is used by the <code>&gt;=</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1081' class='srclink' href='../../src/git/src/object/blob.rs.html#61' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.cmp' class='method'><span id='cmp.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#tymethod.cmp' class='fnname'>cmp</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a></code></span></h4>
+<div class='docblock'><p>This method returns an <code>Ordering</code> between <code>self</code> and <code>other</code>. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#tymethod.cmp">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1088' class='srclink' href='../../src/git/src/object/blob.rs.html#61' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class='method'><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1094' class='srclink' href='../../src/git/src/object/blob.rs.html#61' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.clone' class='method'><span id='clone.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span></h4>
+<div class='docblock'><p>Returns a copy of the value. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone">Read more</a></p>
+</div><h4 id='method.clone_from' class='method'><span id='clone_from.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></span></h4>
+<div class='docblock'><p>Performs copy-assignment from <code>source</code>. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='../../git/protocol/trait.Decoder.html' title='git::protocol::Decoder'>Decoder</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1103' class='srclink' href='../../src/git/src/object/blob.rs.html#70-81' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.decode' class='method'><span id='decode.v' class='invisible'><code>fn <a href='../../git/protocol/trait.Decoder.html#tymethod.decode' class='fnname'>decode</a>(b: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='enum' href='../../nom/internal/enum.IResult.html' title='nom::internal::IResult'>IResult</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>,&nbsp;Self&gt;</code></span></h4>
+</div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1112' class='srclink' href='../../src/git/src/object/blob.rs.html#82-86' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt-1' class='method'><span id='fmt.v-1' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='../../git/protocol/trait.Encoder.html' title='git::protocol::Encoder'>Encoder</a> for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1118' class='srclink' href='../../src/git/src/object/blob.rs.html#87-95' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.required_size' class='method'><span id='required_size.v' class='invisible'><code>fn <a href='../../git/protocol/trait.Encoder.html#tymethod.required_size' class='fnname'>required_size</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></span></h4>
+<div class='docblock'><p>when encoding into git objects, the size is needed to be known prior encoding. It is because the size is encoded prior the object. <a href="../../git/protocol/trait.Encoder.html#tymethod.required_size">Read more</a></p>
+</div><h4 id='method.encode' class='method'><span id='encode.v' class='invisible'><code>fn <a href='../../git/protocol/trait.Encoder.html#tymethod.encode' class='fnname'>encode</a>&lt;W:&nbsp;<a class='trait' href='https://doc.rust-lang.org/nightly/std/io/trait.Write.html' title='std::io::Write'>Write</a>&gt;(&amp;self, writer: &amp;mut W) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>&gt;</code></span></h4>
+<div class='docblock'><p>encode into the given <code>std::io::Write</code>.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl&lt;H:&nbsp;<a class='trait' href='../../git/protocol/trait.Hash.html' title='git::protocol::Hash'>Hash</a>&gt; <a class='trait' href='../../git/object/trait.Object.html' title='git::object::Object'>Object</a>&lt;H&gt; for <a class='struct' href='../../git/object/struct.Blob.html' title='git::object::Blob'>Blob</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-3006' class='srclink' href='../../src/git/src/object/mod.rs.html#26-28' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='associatedtype.Id' class='type'><span id='Id.t' class='invisible'><code>type <a href='../../git/object/trait.Object.html#associatedtype.Id' class='type'>Id</a> = <a class='struct' href='../../git/object/struct.BlobRef.html' title='git::object::BlobRef'>BlobRef</a>&lt;H&gt;</code></span></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "git";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

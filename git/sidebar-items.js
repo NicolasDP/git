@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["GitError",""]],"mod":[["fs",""],["object",""],["protocol","git protocols and interfaces"],["refs",""]],"type":[["Result",""]]});

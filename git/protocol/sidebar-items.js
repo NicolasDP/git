@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["DecoderReader","A ZLIB decoder, or decompressor."],["EncoderReader","A ZLIB encoder, or compressor."],["Partial","partial hash, used for lookup or when the type of Hash is not known"],["SHA1","Hash SHA1."]],"trait":[["Decoder",""],["Encoder",""],["Hash","Hash Protocol"],["Repo",""]]});
