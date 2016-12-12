@@ -234,12 +234,12 @@ mod tests {
         let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         let r = git.lookup_hash(
-            &Partial::<SHA1>::from_hex("b1").unwrap()
+            &Partial::<SHA1>::from_hex("b1c").unwrap()
         ).unwrap();
         for h in r.iter() {
-            println!("{}", h);
+            let h_str = format!("{}", h);
+            assert!(h_str.starts_with("b1c"));
         }
-        assert!(false)
     }
     #[test]
     fn new() {

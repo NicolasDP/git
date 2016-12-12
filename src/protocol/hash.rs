@@ -9,7 +9,7 @@ extern crate rustc_serialize;
 use self::rustc_serialize::hex::{FromHex, ToHex};
 use std::io::{BufRead};
 use std::{str, io, fmt, marker};
-use error::{Result, GitError};
+use error::{Result};
 
 /// Hash Protocol
 ///
@@ -73,31 +73,31 @@ pub trait Hash : Sized {
 /// a Partial Hash is a Hash, which means you can, technically, use it
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 pub struct Partial<H: Hash> {
-    data: Vec<u8>,
+    hex: String,
     phantom_: marker::PhantomData<H>
 }
 impl<H: Hash> Partial<H> {
-    fn new(data: Vec<u8>) -> Self {
-        Partial { data: data, phantom_: marker::PhantomData }
+    fn new(hex: String) -> Self {
+        Partial { hex: hex, phantom_: marker::PhantomData }
     }
 
     pub fn is_prefix_of<R: Hash>(&self, rhs: &R) -> bool {
-        rhs.as_bytes().starts_with(self.as_bytes())
+        let hex = rhs.to_hexadecimal();
+        let b = hex.starts_with(&self.hex);
+        b
     }
 }
 impl<H: Hash> Hash for Partial<H> {
     #[inline]
     fn from_bytes(b: Vec<u8>) -> Option<Self> {
         if b.len() <= Self::digest_size() {
-            Some(Partial::new(b))
+            Some(Self::new(b.to_hex()))
         } else { None }
     }
     #[inline]
     fn from_hex(s: &str) -> Option<Self> {
-        let ss : &str = if s.len() % 2 == 0 { s } else { &s[..s.len()-1] };
-        if let Ok(b) = ss.from_hex() {
-            Self::from_bytes(b)
-        } else { None }
+        /// TODO check it is an hexadecimal
+        Some(Self::new(s.to_string()))
     }
     fn hash<R: BufRead>(_: &mut R) -> Result<Self> {
         use ::error::GitError;
@@ -107,10 +107,10 @@ impl<H: Hash> Hash for Partial<H> {
     fn digest_size() -> usize { 20 }
 
     #[inline]
-    fn to_hexadecimal(&self) -> String { self.data.as_slice().to_hex().to_string() }
+    fn to_hexadecimal(&self) -> String { self.hex.clone() }
 
     #[inline]
-    fn as_bytes(&self) -> &[u8] { self.data.as_slice() }
+    fn as_bytes(&self) -> &[u8] { unimplemented!() }
 }
 impl<H: Hash> fmt::Display for Partial<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.to_hexadecimal()) }
