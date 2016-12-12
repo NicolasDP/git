@@ -1,7 +1,6 @@
 use std::path::*;
 use std::io::Read;
 use std::str::FromStr;
-use std::collections::BTreeSet;
 
 use protocol::{Repo, Hash, ZlibDecoder, Decoder};
 use error::{Result, GitError};
@@ -169,12 +168,12 @@ impl Repo for GitFS {
              })
     }
 
-    fn list_branches(&self) -> Result<BTreeSet<SpecRef>> {
+    fn list_branches(&self) -> Result<Vec<SpecRef>> {
         get_all_files_in( self.refs_dir().join("heads")
                         , &|x| Ok(Some(SpecRef::branch(x)))
                         )
     }
-    fn list_remotes(&self) -> Result<BTreeSet<SpecRef>> {
+    fn list_remotes(&self) -> Result<Vec<SpecRef>> {
         get_all_files_in( self.refs_dir().join("remotes")
                         , &|remote_path| {
             let mut components = remote_path.components();
@@ -191,7 +190,7 @@ impl Repo for GitFS {
             }
         )
     }
-    fn list_tags(&self) -> Result<BTreeSet<SpecRef>> {
+    fn list_tags(&self) -> Result<Vec<SpecRef>> {
         get_all_files_in( self.refs_dir().join("tags")
                         , &|x| Ok(Some(SpecRef::tag(x)))
                         )

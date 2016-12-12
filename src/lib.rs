@@ -9,8 +9,11 @@ extern crate rustc_serialize;
 #[macro_use]
 extern crate nom;
 
+#[macro_use]
+mod error;
 pub mod protocol;
 pub mod object;
-pub mod error;
 pub mod refs;
 pub mod fs;
+
+pub use error::{Result, GitError};

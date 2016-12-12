@@ -14,7 +14,7 @@ impl<H: Hash + fmt::Display> fmt::Display for PackRef<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
 impl<H: Hash> Hash for PackRef<H> {
-    fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
+    fn hash<R: io::BufRead>(data: &mut R) -> Result<Self> {
         H::hash(data).map(|h| PackRef(h))
     }
 

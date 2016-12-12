@@ -67,7 +67,7 @@ pub trait Repo {
     }
 
     fn get_head<H: Hash>(&self) -> Result<Ref<H>> { self.get_ref(SpecRef::Head) }
-    fn list_branches(&self) -> Result<BTreeSet<SpecRef>>;
-    fn list_remotes(&self) -> Result<BTreeSet<SpecRef>>;
-    fn list_tags(&self) -> Result<BTreeSet<SpecRef>>;
+    fn list_branches(&self) -> Result<Vec<SpecRef>>;
+    fn list_remotes(&self) -> Result<Vec<SpecRef>>;
+    fn list_tags(&self) -> Result<Vec<SpecRef>>;
 }
