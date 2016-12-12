@@ -1,10 +1,10 @@
-use std::{fmt, convert, io, cmp};
+use std::{fmt, convert, io, cmp, path};
 use std::collections::BTreeSet;
 use nom;
 
 use ::protocol::Hash;
 use ::error::{Result};
-use ::fs::util::get_all_files_in;
+use ::fs::util::*;
 use ::fs::GitFS;
 use super::PackRef;
 
@@ -97,7 +97,7 @@ impl<H: Hash + fmt::Display> fmt::Display for IndexRef<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
 impl<H: Hash> Hash for IndexRef<H> {
-    fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
+    fn hash<R: io::BufRead>(data: &mut R) -> Result<Self> {
         H::hash(data).map(|h| IndexRef(h))
     }
 
@@ -115,7 +115,7 @@ impl<H: Hash> convert::AsRef<H> for IndexRef<H> {
     fn as_ref(&self) -> &H { &self.0 }
 }
 
-pub fn list_indexes<H: Ord+Hash>(git: &GitFS) -> Result<BTreeSet<IndexRef<H>>> {
+pub fn list_indexes<H: Hash>(git: &GitFS) -> Result<Vec<IndexRef<H>>> {
     get_all_files_in(
         git.objs_dir().join("pack"),
         & |path| {
@@ -133,7 +133,7 @@ pub fn list_indexes<H: Ord+Hash>(git: &GitFS) -> Result<BTreeSet<IndexRef<H>>> {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 pub struct Index<H: Hash> {
     header:   Header,
-    hashes:   Vec<H>,
+    pub hashes:   Vec<H>,
     crcs:     Vec<u32>,
     offsets:  Vec<usize>,
     pack:     PackRef<H>,
@@ -159,9 +159,17 @@ impl<H: Hash> Index<H> {
     }
 }
 
+pub fn parse_index_file<H: Hash>(path: &path::PathBuf) -> Result<Index<H>> {
+    use std::io::Read;
+    let mut file = try!(open_file(&path));
+    let mut s = Vec::new();
+    io_try!(file.read_to_end(&mut s));
+    let index = nom_try!(parse_index(s.as_ref()));
+    Ok(index)
+}
+
 pub fn parse_index<H:Hash>(i: &[u8]) -> nom::IResult<&[u8], Index<H>> {
     let (i, header)  = try_parse!(i, nom_parse_index_header);
-    println!("{:?}", header);
     if header.magic != 0xff744f63 {
         // panic!("wrong magic {:?}", header.magic);
         return nom::IResult::Error(nom::ErrorKind::IsNot);
@@ -203,16 +211,8 @@ mod test {
         for idx in l.iter() {
             let idx_file = format!("pack-{}.idx", idx.to_hexadecimal());
             let path_idx = git.objs_dir().join("pack").join(idx_file);
-            parse_idx(&path_idx)
+            let index : Index<SHA1> = parse_index_file(&path_idx).unwrap();
+            println!("{:?}", index.header);
         }
-    }
-
-    fn parse_idx(path: &PathBuf) {
-        let mut file = open_file(&path)
-                        .expect("unable to open the file for the git pack index");
-        let mut s = Vec::new();
-        file.read_to_end(&mut s).unwrap();
-        let (_, index) : (&[u8], Index<SHA1>) = parse_index(s.as_ref()).unwrap();
-        println!("{:?}", index.header);
     }
 }
