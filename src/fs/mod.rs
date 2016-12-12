@@ -230,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn loopup() {
+    fn lookup() {
         let path = get_root_test();
         let git = GitFS::new(&path).unwrap();
         let r = git.lookup_hash(
