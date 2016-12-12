@@ -1,7 +1,6 @@
 use std::path::*;
 use std::fs::{File};
 use std::collections::VecDeque;
-use std::collections::BTreeSet;
 
 use refs::{SpecRef};
 use error::{Result, GitError};
@@ -34,12 +33,11 @@ pub fn append_dir_to_queue<P>(queue: &mut VecDeque<PathBuf>, path: P)
 pub fn get_all_files_in<T, P>( parent_path: T
                              , make_specref: & Fn(&Path) -> Result<Option<P>>
                              )
-    -> Result<BTreeSet<P>>
+    -> Result<Vec<P>>
     where T: AsRef<Path>
-        , P: Ord
 {
     let mut queue = VecDeque::with_capacity(100);
-    let mut btree = BTreeSet::new();
+    let mut array = Vec::new();
     let full_path = parent_path.as_ref();
     try!(append_dir_to_queue(&mut queue, &full_path));
     while let Some(dir) = queue.pop_front() {
@@ -49,11 +47,11 @@ pub fn get_all_files_in<T, P>( parent_path: T
                 Ok(b) => b
             };
             if let Some(data) = try!(make_specref(b)) {
-                btree.insert(data);
+                array.push(data);
             }
         } else if dir.is_dir() {
             try!(append_dir_to_queue(&mut queue, &dir));
         }
     }
-    Ok(btree)
+    Ok(array)
 }
