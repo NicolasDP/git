@@ -7,8 +7,9 @@ use self::crypto::digest::Digest;
 use self::crypto::sha1::Sha1;
 extern crate rustc_serialize;
 use self::rustc_serialize::hex::{FromHex, ToHex};
-use std::io::{Result, BufRead};
+use std::io::{BufRead};
 use std::{str, io, fmt};
+use error::{Result, GitError};
 
 /// Hash Protocol
 ///
@@ -85,7 +86,7 @@ impl Hash for SHA1 {
         let mut res = [0;128];
 
         loop {
-            let n = try!(data.read(buf));
+            let n = io_try!(data.read(buf));
             if n == 0 { break; }
             st.input(&buf[0..n]);
         }
@@ -158,10 +159,11 @@ mod test {
 
     use super::*;
     use nom;
-    use std::io;
+    use ::error::{Result};
     use ::protocol::encoder::Encoder;
     use ::protocol::decoder::Decoder;
     use ::protocol::test_encoder_decoder;
+    use std::io;
 
     #[test]
     fn sha1_empty() {
@@ -180,7 +182,7 @@ mod test {
     #[derive(PartialEq, Eq, Debug)]
     struct Bytes<H: Hash>(H);
     impl<H: Hash> Hash for Bytes<H> {
-        fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
+        fn hash<R: io::BufRead>(data: &mut R) -> Result<Self> {
             H::hash(data).map(|h| Bytes(h))
         }
         fn from_bytes(v: Vec<u8>) -> Option<Self> {
@@ -205,7 +207,7 @@ mod test {
     #[derive(PartialEq, Eq, Debug)]
     struct Hex<H: Hash>(H);
     impl<H: Hash> Hash for Hex<H> {
-        fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
+        fn hash<R: io::BufRead>(data: &mut R) -> Result<Self> {
             H::hash(data).map(|h| Hex(h))
         }
         fn from_bytes(v: Vec<u8>) -> Option<Self> {

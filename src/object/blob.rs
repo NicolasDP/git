@@ -3,6 +3,7 @@
 use protocol::{Encoder, Decoder, Hash};
 use std::{io, fmt, str, convert};
 use nom;
+use error::Result;
 
 /// Blob reference
 ///
@@ -17,7 +18,7 @@ impl<H: Hash + fmt::Display> fmt::Display for BlobRef<H> {
 }
 
 impl<H: Hash> Hash for BlobRef<H> {
-    fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
+    fn hash<R: io::BufRead>(data: &mut R) -> Result<Self> {
         H::hash(data).map(|h| BlobRef(h))
     }
 

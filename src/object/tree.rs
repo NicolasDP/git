@@ -1,6 +1,7 @@
 //! Git's Tree
 use protocol::{Encoder, Decoder, Hash};
 use super::blob::BlobRef;
+use error::Result;
 use std::{io, fmt, str, collections, path, cmp, borrow, iter, ops, convert};
 use nom;
 
@@ -21,7 +22,7 @@ impl<H: Hash + fmt::Display> fmt::Display for TreeRef<H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
 impl<H: Hash> Hash for TreeRef<H> {
-    fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
+    fn hash<R: io::BufRead>(data: &mut R) -> Result<Self> {
         H::hash(data).map(|h| TreeRef(h))
     }
 

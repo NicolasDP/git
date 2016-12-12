@@ -3,6 +3,7 @@ use super::person::Person;
 use protocol::{Encoder, Decoder, Hash};
 use std::{io, fmt, convert, ops, iter, slice, collections, str};
 use nom;
+use error::Result;
 
 /// Commit reference
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
@@ -15,7 +16,7 @@ impl<H: Hash + fmt::Display> fmt::Display for CommitRef<H> {
 }
 
 impl<H: Hash> Hash for CommitRef<H> {
-    fn hash<R: io::BufRead>(data: &mut R) -> io::Result<Self> {
+    fn hash<R: io::BufRead>(data: &mut R) -> Result<Self> {
         H::hash(data).map(|h| CommitRef(h))
     }
 
