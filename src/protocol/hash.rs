@@ -8,7 +8,7 @@ use self::crypto::sha1::Sha1;
 extern crate rustc_serialize;
 use self::rustc_serialize::hex::{FromHex, ToHex};
 use std::io::{BufRead};
-use std::{str, io, fmt};
+use std::{str, io, fmt, marker};
 use error::{Result, GitError};
 
 /// Hash Protocol
@@ -66,6 +66,54 @@ pub trait Hash : Sized {
     fn decode_hex(i: &[u8]) -> nom::IResult<&[u8], Self> { decode_hex_(i) }
     #[inline]
     fn encode_hex<W: io::Write>(&self, w: &mut W) -> io::Result<usize> { encode_hex_(self, w) }
+}
+
+/// partial hash, used for lookup or when the type of Hash is not known
+///
+/// a Partial Hash is a Hash, which means you can, technically, use it
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
+pub struct Partial<H: Hash> {
+    data: Vec<u8>,
+    phantom_: marker::PhantomData<H>
+}
+impl<H: Hash> Partial<H> {
+    fn new(data: Vec<u8>) -> Self {
+        Partial { data: data, phantom_: marker::PhantomData }
+    }
+
+    pub fn is_prefix_of<R: Hash>(&self, rhs: &R) -> bool {
+        rhs.as_bytes().starts_with(self.as_bytes())
+    }
+}
+impl<H: Hash> Hash for Partial<H> {
+    #[inline]
+    fn from_bytes(b: Vec<u8>) -> Option<Self> {
+        if b.len() <= Self::digest_size() {
+            Some(Partial::new(b))
+        } else { None }
+    }
+    #[inline]
+    fn from_hex(s: &str) -> Option<Self> {
+        let ss : &str = if s.len() % 2 == 0 { s } else { &s[..s.len()-1] };
+        if let Ok(b) = ss.from_hex() {
+            Self::from_bytes(b)
+        } else { None }
+    }
+    fn hash<R: BufRead>(_: &mut R) -> Result<Self> {
+        use ::error::GitError;
+        Err(GitError::Other("cannot hash a partial hash".to_string()))
+    }
+    #[inline]
+    fn digest_size() -> usize { 20 }
+
+    #[inline]
+    fn to_hexadecimal(&self) -> String { self.data.as_slice().to_hex().to_string() }
+
+    #[inline]
+    fn as_bytes(&self) -> &[u8] { self.data.as_slice() }
+}
+impl<H: Hash> fmt::Display for Partial<H> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.to_hexadecimal()) }
 }
 
 /// Hash SHA1.
@@ -241,5 +289,37 @@ mod test {
         let sha1 = Bytes::<SHA1>::from_hex(sha1_hex)
                         .expect("expecting a valid SHA1 encoded in bytes");
         test_encoder_decoder(sha1);
+    }
+
+    const DEFAULT_HASH : &'static str = r"2aae6c35c94fcfb415dbe95f408b9ce91ee846ed";
+
+    #[test]
+    fn sha1_starts_with_1() {
+        let sha1 = SHA1::from_hex(DEFAULT_HASH)
+                        .expect("expecting a valid SHA1 encoded in bytes");
+        let prefix_sha1_hex = "2aae6c35";
+        let prefix_sha1 = Partial::<SHA1>::from_hex(prefix_sha1_hex)
+                        .expect("expecting a Partial<SHA1> encoded in bytes");
+        assert!(prefix_sha1.is_prefix_of(&sha1));
+    }
+
+    #[test]
+    fn sha1_starts_with_2() {
+        let sha1 = SHA1::from_hex(DEFAULT_HASH)
+                        .expect("expecting a valid SHA1 encoded in bytes");
+        let prefix_sha1_hex = "2aae6c3";
+        let prefix_sha1 = Partial::<SHA1>::from_hex(prefix_sha1_hex)
+                        .expect("expecting a Partial<SHA1> encoded in bytes");
+        assert!(prefix_sha1.is_prefix_of(&sha1));
+    }
+
+    #[test]
+    fn sha1_starts_with_3() {
+        let sha1 = SHA1::from_hex(DEFAULT_HASH)
+                        .expect("expecting a valid SHA1 encoded in bytes");
+        let prefix_sha1_hex = "aaaaaaaa";
+        let prefix_sha1 = Partial::<SHA1>::from_hex(prefix_sha1_hex)
+                        .expect("expecting a Partial<SHA1> encoded in bytes");
+        assert!(!prefix_sha1.is_prefix_of(&sha1));
     }
 }
