@@ -5,6 +5,37 @@ use std::error::Error;
 
 use refs::RefName;
 
+/// *try* the IO operation, wrap the IOError in a GitError if failed
+macro_rules! io_try {
+    ($expression:expr) => ({
+        use ::error::{GitError};
+        match $expression {
+            Ok(v) => v,
+            Err(err) => return Err(GitError::ioerror(err))
+        }
+    })
+}
+
+/// *try* to run a nom parser, wrap the Nom's Error in a GitError if failed
+macro_rules! nom_try {
+    ($expression:expr) => ({
+        use nom::{IResult, Needed};
+        use ::error::{GitError};
+        match $expression {
+            IResult::Done(_, v) => v,
+            IResult::Incomplete(Needed::Unknown) => {
+                return Err(GitError::ParsingErrorNotEnough(None))
+            },
+            IResult::Incomplete(Needed::Size(s)) => {
+                return Err(GitError::ParsingErrorNotEnough(Some(s)))
+            },
+            IResult::Error(err) => {
+                return Err(GitError::ParsingError(format!("{:?}", err).to_string()))
+            }
+        }
+    })
+}
+
 #[derive(PartialEq, Debug)]
 pub enum GitError {
     OutOfBound(usize, usize),
