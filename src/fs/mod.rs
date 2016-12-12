@@ -1,6 +1,7 @@
 use std::path::*;
 use std::io::Read;
 use std::str::FromStr;
+use std::fs;
 
 use protocol::{Repo, Hash, ZlibDecoder, Decoder, Partial};
 use error::{Result, GitError};
@@ -98,6 +99,29 @@ impl GitFS {
         };
         Ok(())
     }
+    fn lookup_hash_loose<H: Hash>(&self, prefix: &Partial<H>) -> Result<Vec<H>> {
+        let hex = prefix.to_hexadecimal();
+        let hex_start = &hex.as_str()[0..2];
+        let hex_end = &hex.as_str()[2..];
+        let mut looses = Vec::new();// try!(self.lookup_hash_loose(prefix.to_hexadecimal()));
+        let loose_path = self.objs_dir().join(hex_start);
+        if ! loose_path.exists() || ! loose_path.is_dir() {
+            return Ok(looses)
+        }
+        let paths = io_try!(fs::read_dir(&loose_path));
+        for path in paths {
+            let path = io_try!(path).path();
+            let filename = path.file_name().unwrap()
+                               .to_str().unwrap();
+            if filename.starts_with(hex_end) {
+                let h = format!("{}{}", hex_start, filename);
+                if let Some(h) = H::from_hex(h.as_str()) {
+                    looses.push(h)
+                }
+            }
+        }
+        Ok(looses)
+    }
 }
 impl Repo for GitFS {
     fn is_valid(&self) -> Result<()> { self.check_repo() }
@@ -170,7 +194,7 @@ impl Repo for GitFS {
     }
 
     fn lookup_hash<H: Hash>(&self, prefix: &Partial<H>) -> Result<Vec<H>> {
-        let mut looses = Vec::new();// try!(self.lookup_hash_loose(prefix.to_hexadecimal()));
+        let mut looses = try!(self.lookup_hash_loose(prefix));
         for idx in list_indexes::<H>(self)?.iter() {
             let idx_file = format!("pack-{}.idx", idx.to_hexadecimal());
             let path_idx = self.objs_dir().join("pack").join(idx_file);
@@ -231,14 +255,14 @@ mod tests {
 
     #[test]
     fn lookup() {
-        let path = get_root_test();
+        let path = PathBuf::new().join(".").join(".git");
         let git = GitFS::new(&path).unwrap();
         let r = git.lookup_hash(
-            &Partial::<SHA1>::from_hex("b1c").unwrap()
+            &Partial::<SHA1>::from_hex("f34").unwrap()
         ).unwrap();
         for h in r.iter() {
             let h_str = format!("{}", h);
-            assert!(h_str.starts_with("b1c"));
+            assert!(h_str.starts_with("f34"));
         }
     }
     #[test]
